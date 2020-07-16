@@ -6,8 +6,8 @@
 #include "dcf.h"
 #define pi 3.1415926535897932	//圆周率
 #define e 2.71828182845904523	//自然常数
-#define tmin 4.1	//周期起始值
-#define tmax 4.2	//周期结束值
+#define tmin 13.7	//周期起始值
+#define tmax 13.8	//周期结束值
 #define tstep 0.0001	//周期步长
 
 /*jurkevich方法寻找周期*/
@@ -210,10 +210,12 @@ int main()
 {
 	char *olcname;
 	olcname = (char*)malloc(100 * sizeof(char));
-	printf("输入光变曲线文件路径：");
+	printf("请输入光变曲线文件路径：");
 	scanf("%s", olcname);
 	FILE* olc;
 	olc = fopen(olcname, "r");
+
+
 
 	int np = 0;
 	int nlc;	//光变曲线数量
@@ -309,7 +311,8 @@ int main()
 		}
 	}
 
-	int** xy;	//会合光变曲线
+	
+	/*int** xy;	//会合光变曲线
 	xy = (int**)malloc(nlc * (nlc - 1) / 2 * sizeof(int));
 	for (int i = 0; i < nlc * (nlc - 1) / 2; i++)
 	{
@@ -321,11 +324,11 @@ int main()
 	int flag = 0;	//检验是否线性相关
 	for (int i = 0; i < nlc - 1; i++)
 	{
-		if (lp[i][nlp[i][0] - 1][0] - lp[i][0][0] < 1)	//一段光变曲线数据在一天之内
+		if (lp[i][nlp[i][0] - 1][0] - lp[i][0][0] < 1)
 		{
 			for (int j = i + 1; j < nlc; j++)
 			{
-				if (lp[j][nlp[j][0] - 1][0] - lp[j][0][0] < 1)	//一段光变曲线数据在一天之内
+				if (lp[j][nlp[j][0] - 1][0] - lp[j][0][0] < 1)
 				{
 					double ddcf = dcf(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn / 24);
 					if (ddcf != 0)
@@ -335,13 +338,13 @@ int main()
 						{
 							for (int xyj = 0; xyj < nxy; xyj++)
 							{
-								if (xy[xyi][0] == xy[xyj][0] && xy[xyi][1] == i && xy[xyj][1] == j)	//线性相关
+								if (xy[xyi][0] == xy[xyj][0] && xy[xyi][1] == i && xy[xyj][1] == j)
 								{
 									flag = 1;
 								}
 							}
 						}
-						if (!flag)	//线性无关
+						if (!flag)
 						{
 							xy[nxy][0] = i;
 							xy[nxy][1] = j;
@@ -395,21 +398,52 @@ int main()
 			}
 			printf("\n");
 		}
+	}*/
+
+	double temp;
+	int nxy = 14;
+	char outname[256];
+	printf("请输入文件");
+	scanf("%s", outname);
+	FILE* out;
+	out = fopen(outname, "r");
+	for (int i = 0; i < nxy; i++)
+	{
+		(void)fscanf(out, "%lf", &tsyn[i][0]);
+		(void)fscanf(out, "%lf", &temp);
+		for (int j = 0; j < 3; j++)
+		{
+			(void)fscanf(out, "%lf", &rs[i][0][j]);
+		}
+		for (int j = 0; j < 3; j++)
+		{
+			(void)fscanf(out, "%lf", &re[i][0][j]);
+		}
+		(void)fscanf(out, "%lf", &tsyn[i][1]);
+		(void)fscanf(out, "%lf", &temp);
+		for (int j = 0; j < 3; j++)
+		{
+			(void)fscanf(out, "%lf", &rs[i][1][j]);
+		}
+		for (int j = 0; j < 3; j++)
+		{
+			(void)fscanf(out, "%lf", &re[i][1][j]);
+		}
 	}
+
 
 	/*自转轴指向初值*/
 	double lai, bei;
 	double chi2 = 0;
-	double temp = 1e26;
+	temp = 1e26;
 
 	double la, be;
-	double dx[3] = { 0 };	//迭代步长
-	int in = 0;	//迭代次数
+	double dx[3] = { 0 };
+	int in = 0;
 	double psid = Tsyn / 24;
-	double X[3] = { 0 };	//解
+	double X[3] = { 0 };
 	for (double a = -1.0; a < 2.0; a = a+2.0)
 	{
-		/*遍历初值*/
 		temp = 1e26;
 		for (double lp = 0; lp < 2 * pi; lp = lp + 0.05)
 		{
@@ -417,7 +451,7 @@ int main()
 			{
 				for (int i = 0; i < nxy; i++)
 				{
-					chi2 = chi2 + pow(f(a, tsyn[i][0], tsyn[i][1], Tsyn/24, rs[i][0], re[i][0], rs[i][1], re[i][1], lp, bp, Tsyn/24), 2);
+					chi2 = chi2 + pow(f(a, tsyn[i][0], tsyn[i][1], Tsyn, rs[i][0], re[i][0], rs[i][1], re[i][1], lp, bp, Tsyn), 2);
 				}
 				if (temp > chi2)
 				{
@@ -430,7 +464,6 @@ int main()
 		in = 0;
 		la = lai;
 		be = bei;
-
 		for (int i = 0; i < 3; i++)
 		{
 			dx[i] = 0;
@@ -466,7 +499,7 @@ int main()
 			la = la - dx[1];
 			be = be - dx[2];
 			psid = psid - dx[0];
-			printf("x迭代中：%f %f %f\t", psid, la, be);
+			//printf("%f %f %f\t", psid, la, be);
 			for (int i = 0; i < nxy; i++)
 			{
 				J[i][0] = dfdPsid(tsyn[i][0], tsyn[i][1], psid);
@@ -512,10 +545,10 @@ int main()
 			}
 			free(J);
 			free(F);
-			printf("dx:%f %f %f\n", dx[0],dx[1],dx[2]);
-		} while (abs(dx[0]) > 0.00001 || abs(dx[1]) > 0.1 || abs(dx[2]) > 0.1);
-		printf("x迭代后:%f %f %f\n", r2d(mod(X[1], 2 * pi)), r2d(asin(sin(X[2]))), X[0] * 24);
-		printf("x残差最小：%f %f %f\n", psid*24, r2d(mod(la, 2 * pi))), r2d(asin(sin(be)));
+			//printf("%f %f %f\n", dx[0],dx[1],dx[2]);
+		} while (/*abs(dx[0]) > 0.000001 || abs(dx[1]) > 0.01 || abs(dx[2]) > 0.01*/ in<5000);
+		printf("%f %f %f\n", r2d(mod(X[1], 2 * pi)), r2d(asin(sin(X[2]))), X[0] * 24);
+		printf("%f %f %f\n", psid*24, r2d(mod(la, 2 * pi))), r2d(asin(sin(be)));
 	}
 
 

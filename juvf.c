@@ -116,7 +116,7 @@ double** AB(double** a, int ma, int na, double** b, int mb, int nb)
 	if (na != mb)
 	{
 		printf("¼ÆËã´íÎó£¡");
-		return NULL;
+		return;
 	}
 	else
 	{
@@ -260,5 +260,5 @@ double* nor(double* xulx, int na)
 
 double r2d(double rad)
 {
-	return rad * 180 / pi;
+	return rad * 180.0 / pi;
 }

@@ -23,7 +23,7 @@ double dcf(double** arr1, double** arr2, int na1, int na2, double tsyn)
 	double m1 = mean(ar1, na1);
 	double m2 = mean(ar2, na2);
 	int M = 0;
-	for (double tau = arr2[0][0] - arr1[na1 - 1][0]; tau < arr2[na2 - 1][0] - arr1[0][0]; tau = tau + 0.01 * tsyn)
+	for (double tau = arr2[0][0] - arr1[na1 - 1][0]; tau < arr2[na2 - 1][0] - arr1[0][0]; tau = tau + 0.0001)
 	{
 		d = 0;
 		M = 0;
@@ -47,7 +47,7 @@ double dcf(double** arr1, double** arr2, int na1, int na2, double tsyn)
 	}
 	free(ar1);
 	free(ar2);
-	if (temp > 0.98 && (min(arr1[na1 - 1][0], arr2[na2 - 1][0] - T) - max(arr1[0][0], arr2[0][0] - T)) * 24 > 2.074 && T <= 90 && (abs(mod(T, tsyn) / tsyn - 1) < 0.2 || abs(mod(T, tsyn) / tsyn - 1) > 0.8))
+	if (temp > 0.98 && (min(arr1[na1 - 1][0], arr2[na2 - 1][0] - T) - max(arr1[0][0], arr2[0][0] - T)) * 24 > 2.074 && T <= 90 && abs(mod(T, tsyn) / (tsyn / 24) - 1) < 0.2)
 	{
 		return T;
 	}
