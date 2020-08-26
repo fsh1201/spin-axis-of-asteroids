@@ -1,4 +1,10 @@
+#include <math.h>
+#include <stdlib.h>
+
+
+#define e 2.71828182845904523	//自然常数
 #define pi 3.1415926535897932	//圆周率
+
 /*行列式*/
 double hhlx(double** arr, int na);
 /*矩阵求逆*/
@@ -25,3 +31,7 @@ double* crosspro(double* xulx1, double* xulx2);
 double* nor(double* xulx, int na);
 /*弧度转角度*/
 double r2d(double rad);
+/*绝对值*/
+double Abs(double a);
+/*均值滤波*/
+double** avef(double** arr, int na);

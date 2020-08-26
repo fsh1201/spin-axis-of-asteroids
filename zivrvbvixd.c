@@ -1,14 +1,15 @@
 #pragma warning(disable:4996)
 #include <stdio.h>
-#include <math.h>
-#include <stdlib.h>
 #include "juvf.h"
 #include "dcf.h"
-#define pi 3.1415926535897932	//圆周率
-#define e 2.71828182845904523	//自然常数
-#define tmin 4.1	//周期起始值
-#define tmax 4.2	//周期结束值
+#include "dfdcf.h"
+
+#define tmin 5.2	//周期起始值
+#define tmax 5.3	//周期结束值
 #define tstep 0.0001	//周期步长
+#define dp 1e-5
+#define dlp 1e-3
+#define dbp 1e-3
 
 /*jurkevich方法寻找周期*/
 double jur(double** arr, int na)
@@ -79,7 +80,7 @@ double jur(double** arr, int na)
 double dN(double ti, double tj, double tsyn)
 {
 	double a;
-	a = (double)((int)((ti - tj) / tsyn));
+	a = (double)((int)((ti - tj) / tsyn - 0.5));
 	return a;
 }
 
@@ -156,7 +157,21 @@ double f(double a, double Ti, double Tj, double Psid, double *rs1, double *re1,d
 	free(r1);
 	free(r2);
 
-	return f;
+	if (L1 - L2 < -pi)
+	{
+		return f + 1;
+	}
+	else
+	{
+		if (L1 - L2 > pi)
+		{
+			return f - 1;
+		}
+		else
+		{
+			return f;
+		}
+	}
 }
 
 double dLdlp(double* r, double lp, double bp)
@@ -230,10 +245,15 @@ int main()
 	double* lmax, * lmin;
 	lmax = (double*)malloc(nlc * sizeof(double));
 	lmin = (double*)malloc(nlc * sizeof(double));
+
+	double* delt;
+	delt = (double*)malloc(nlc * sizeof(double));
+
 	for (int i = 0; i < nlc; i++)
 	{
 		lmax[i] = -1e9;
 		lmin[i] = 1e9;
+		delt[i] = -1e26;
 		(void)fscanf(olc, "%d %d", &nlp[i][0], &nlp[i][1]);
 		lp[i] = (double**)malloc(nlp[i][0] * sizeof(double));
 		for (int j = 0; j < nlp[i][0]; j++)
@@ -252,6 +272,13 @@ int main()
 				lmin[i] = lp[i][j][1];
 			}
 			np++;
+			if (j > 0)
+			{
+				if (delt[i] < lp[i][j][0] - lp[i][j - 1][0])
+				{
+					delt[i] = lp[i][j][0] - lp[i][j - 1][0];
+				}
+			}
 		}
 	}
 
@@ -315,19 +342,19 @@ int main()
 	{
 		xy[i] = (int*)malloc(2 * sizeof(int));
 	}
-	double* timedelay;	//时间延迟
-	timedelay = (double*)malloc(nlc * (nlc - 1) / 2 * sizeof(double));
+	double* lag;	//时间延迟
+	lag = (double*)malloc(nlc * (nlc - 1) / 2 * sizeof(double));
 	int nxy = 0;	//方程个数
 	int flag = 0;	//检验是否线性相关
 	for (int i = 0; i < nlc - 1; i++)
 	{
-		if (lp[i][nlp[i][0] - 1][0] - lp[i][0][0] < 1)	//一段光变曲线数据在一天之内
+		if (delt[i] < 0.02 && lp[i][nlp[i][0]-1][0]-lp[i][0][0] > 0.1)	//观测间隔在15分钟内
 		{
 			for (int j = i + 1; j < nlc; j++)
 			{
-				if (lp[j][nlp[j][0] - 1][0] - lp[j][0][0] < 1)	//一段光变曲线数据在一天之内
+				if (delt[j] < 0.02 && lp[j][nlp[j][0] - 1][0] - lp[j][0][0] > 0.1 && lp[i][0][0]<lp[j][0][0] && lp[j][0][0]-lp[i][0][0]<180)	//观测间隔在15分钟内
 				{
-					double ddcf = dcf(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn / 24);
+					double ddcf = timedelay_DCF(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn / 24);
 					if (ddcf != 0)
 					{
 						flag = 0;
@@ -345,7 +372,7 @@ int main()
 						{
 							xy[nxy][0] = i;
 							xy[nxy][1] = j;
-							timedelay[nxy] = ddcf;
+							lag[nxy] = ddcf;
 							tsyn[nxy][0] = (min(lp[i][nlp[i][0] - 1][0], lp[j][nlp[j][0] - 1][0] - ddcf) - max(lp[i][0][0], lp[j][0][0] - ddcf)) / 2 + max(lp[i][0][0], lp[j][0][0] - ddcf);
 							tsyn[nxy][1] = tsyn[nxy][0] + ddcf;
 							for (int k = 0; k < nlp[i][0] - 1; k++)
@@ -380,9 +407,14 @@ int main()
 		}
 	}
 	printf("%d\n", nxy);
+	if (nxy < 5)
+	{
+		printf("未找到足够数量的方程。");
+		exit(20);
+	}
 	for (int i = 0; i < nxy; i++)
 	{
-		printf("%d %d %f %f %f\n", xy[i][0], xy[i][1], timedelay[i], tsyn[i][0], tsyn[i][1]);
+		printf("%d %d %f %f %f\n", xy[i][0], xy[i][1], lag[i], tsyn[i][0], tsyn[i][1]);
 		for (int j = 0; j < 2; j++)
 		{
 			for (int k = 0; k < 3; k++)
@@ -397,92 +429,124 @@ int main()
 		}
 	}
 
+	/*FILE* eq;
+	eq = fopen("E:\\eq.txt", "w");
+	fprintf(eq, "%d\n", nxy);
+	for (int i = 0; i < nxy; i++)
+	{
+		fprintf(eq, "%.6f ", tsyn[i][0]);
+		for (int j = 0; j < 3; j++)
+		{
+			fprintf(eq, "%.8f ", rs[i][0][j]);
+		}
+		for (int j = 0; j < 3; j++)
+		{
+			fprintf(eq, "%.8f ", re[i][0][j]);
+		}
+		fprintf(eq, "%.6f ", tsyn[i][1]);
+		for (int j = 0; j < 3; j++)
+		{
+			fprintf(eq, "%.8f ", rs[i][1][j]);
+		}
+		for (int j = 0; j < 3; j++)
+		{
+			fprintf(eq, "%.8f ", re[i][1][j]);
+		}
+		fprintf(eq, "\n");
+	}*/
+
+	FILE* f1, * f2;
+	for (int j = 0; j < nxy; j++)
+	{
+		char tname1[50] = "E:\\";
+		char tname2[50] = "E:\\";
+		char s[10];
+		char s1[10] = "1.txt";
+		char s2[10] = "2.txt";
+		itoa(j, s, 10);
+		strcat(tname1, s);
+		strcat(tname1, s1);
+		strcat(tname2, s);
+		strcat(tname2, s2);
+
+		f1 = fopen(tname1, "w");
+		f2 = fopen(tname2, "w");
+
+		for (int i = 0; i < nlp[xy[j][0]][0]; i++)
+		{
+			fprintf(f1, "%.4f %.4f\n", lp[xy[j][0]][i][0], lp[xy[j][0]][i][1]);
+		}
+		for (int i = 0; i < nlp[xy[j][1]][0]; i++)
+		{
+			fprintf(f2, "%.4f %.4f\n", lp[xy[j][1]][i][0] - lag[j], lp[xy[j][1]][i][1]);
+		}
+	}
+
 	/*自转轴指向初值*/
-	double lai, bei;
 	double chi2 = 0;
 	double temp = 1e26;
 
+	int fsh = 0;
+
 	double la, be;
-	double dx[3] = { 0 };	//迭代步长
-	int in = 0;	//迭代次数
+	double dx[3] = { 0 };
+	int in = 0;
 	double psid = Tsyn / 24;
-	double X[3] = { 0 };	//解
-	for (double a = -1.0; a < 2.0; a = a+2.0)
+	double X[3] = { 0 };
+	for (double a = -1.0; a < 2.0; a = a + 2.0)
 	{
-		/*遍历初值*/
+		psid = Tsyn / 24;
 		temp = 1e26;
-		for (double lp = 0; lp < 2 * pi; lp = lp + 0.05)
+		for (double l = 0; l <= 2 * pi; l = l + 0.1)
 		{
-			for (double bp = 0; bp < pi / 2; bp = bp + 0.05)
+			for (double b = -pi / 2; b < pi / 2; b = b + 0.1)
 			{
+				chi2 = 0;
 				for (int i = 0; i < nxy; i++)
 				{
-					chi2 = chi2 + pow(f(a, tsyn[i][0], tsyn[i][1], Tsyn/24, rs[i][0], re[i][0], rs[i][1], re[i][1], lp, bp, Tsyn/24), 2);
+					chi2 = chi2 + pow(f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], l, b, psid), 2);
 				}
+				//printf("%f\n", chi2);
 				if (temp > chi2)
 				{
 					temp = chi2;
-					lai = lp;
-					bei = bp;
+					la = l;
+					be = b;
 				}
 			}
 		}
-		in = 0;
-		la = lai;
-		be = bei;
+		printf("%f %f\n", la, be);
 
+		in = 0;
+		temp = 1e26;
+		chi2 = 0;
 		for (int i = 0; i < 3; i++)
 		{
 			dx[i] = 0;
 		}
-		temp = 1e26;
 		do
 		{
-			double** J;	//雅可比矩阵
-			double** F;
+			in++;
+			double** F, ** J, ** Jt, ** JtJ, ** JtF, ** JtJin, ** epsi;
 			F = (double**)malloc(nxy * sizeof(double));
 			J = (double**)malloc(nxy * sizeof(double));
 			for (int i = 0; i < nxy; i++)
 			{
-				J[i] = (double*)malloc(3 * sizeof(double));
 				F[i] = (double*)malloc(sizeof(double));
+				J[i] = (double*)malloc(3 * sizeof(double));
 			}
-			double** Jt;
-			double** JtJ;
-			double** JtF;
-			double** JtJin;
-			double** epsi;
-			epsi = (double**)malloc(3 * sizeof(double));
-			for (int i = 0; i < 3; i++)
-			{
-				epsi[i] = (double*)malloc(sizeof(double));
-			}
-			for (int i = 0; i < 3; i++)
-			{
-				epsi[i][0] = 0;
-			}
-
-			chi2 = 0;
+			psid = psid - dx[0];
 			la = la - dx[1];
 			be = be - dx[2];
-			psid = psid - dx[0];
-			printf("x迭代中：%f %f %f\t", psid, la, be);
+			chi2 = 0;
 			for (int i = 0; i < nxy; i++)
 			{
+				F[i][0] = f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be, Tsyn / 24);
+				chi2 = chi2 + pow(F[i][0], 2);
 				J[i][0] = dfdPsid(tsyn[i][0], tsyn[i][1], psid);
 				J[i][1] = dfdlp(a, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be);
 				J[i][2] = dfdbp(a, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be);
-				F[i][0] = f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be, Tsyn / 24);
-				chi2 = chi2 + pow(f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be, Tsyn / 24), 2);
 			}
-			if (temp > chi2)
-			{
-				temp = chi2;
-				X[0] = psid;
-				X[1] = la;
-				X[2] = be;
-			}
-			in++;
 			Jt = TA(J, nxy, 3);
 			JtJ = AB(Jt, 3, nxy, J, nxy, 3);
 			JtJin = inv(JtJ, 3);
@@ -492,30 +556,44 @@ int main()
 			{
 				dx[i] = epsi[i][0];
 			}
-			for (int i = 0; i < 3; i++)
+			if (temp > chi2)
 			{
-				free(epsi[i]);
-				free(JtJin[i]);
-				free(JtJ[i]);
-				free(JtF[i]);
-				free(Jt[i]);
+				temp = chi2;
+				X[0] = psid;
+				X[1] = la;
+				X[2] = be;
 			}
-			free(epsi);
-			free(JtJin);
-			free(JtJ);
-			free(JtF);
-			free(Jt);
 			for (int i = 0; i < nxy; i++)
 			{
-				free(J[i]);
 				free(F[i]);
+				free(J[i]);
 			}
-			free(J);
 			free(F);
-			printf("dx:%f %f %f\n", dx[0],dx[1],dx[2]);
-		} while (abs(dx[0]) > 0.00001 || abs(dx[1]) > 0.1 || abs(dx[2]) > 0.1);
-		printf("x迭代后:%f %f %f\n", r2d(mod(X[1], 2 * pi)), r2d(asin(sin(X[2]))), X[0] * 24);
-		printf("x残差最小：%f %f %f\n", psid*24, r2d(mod(la, 2 * pi))), r2d(asin(sin(be)));
+			free(J);
+			for (int i = 0; i < 3; i++)
+			{
+				free(Jt[i]);
+				free(JtJ[i]);
+				free(JtF[i]);
+				free(epsi[i]);
+				free(JtJin[i]);
+			}
+			free(Jt);
+			free(JtJ);
+			free(JtF);
+			free(epsi);
+			free(JtJin);
+			printf("%15.10f %15.10f %15.10f\n", dx[0], dx[1], dx[2]);
+			printf("%f %f %f\n", psid * 24, r2d(la), r2d(be));
+			fsh = 1;
+			if (Abs(dx[0]) < dp && Abs(dx[1]) < dlp && Abs(dx[2]) < dbp)
+			{
+				fsh = 0;
+			}
+		} while (in<100);
+		printf("x残差小：%f %f %f\n", X[0] * 24, r2d(mod(X[1], 2 * pi)), r2d(asin(sin(X[2]))));
+		printf("x迭代后：%f %f %f\n\n", psid * 24, r2d(mod(la, 2 * pi)), r2d(asin(sin(be))));
+		printf("%d\n", in);
 	}
 
 

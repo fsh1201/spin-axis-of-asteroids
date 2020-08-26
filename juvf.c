@@ -1,6 +1,4 @@
 #include "juvf.h"
-#include <math.h>
-#include <stdlib.h>
 
 /*ÐÐÁÐÊ½*/
 double hhlx(double** arr, int na)
@@ -261,4 +259,33 @@ double* nor(double* xulx, int na)
 double r2d(double rad)
 {
 	return rad * 180 / pi;
+}
+
+double Abs(double a)
+{
+	if (a > 0)
+		return a;
+	else return -a;
+}
+
+double** avef(double** arr, int na)
+{
+	double** ar = (double**)malloc(na * sizeof(double));
+	for (int i = 0; i < na; i++)
+	{
+		ar[i] = (double*)malloc(2 * sizeof(double));
+	}
+	for (int i = 0; i < na; i++)
+	{
+		ar[i][0] = arr[i][0];
+	}
+	ar[0][1] = arr[0][1];
+	ar[1][1] = arr[1][1];
+	ar[na - 2][1] = arr[na - 2][1];
+	ar[na - 1][1] = arr[na - 1][1];
+	for (int i = 2; i < na - 2; i++)
+	{
+		ar[i][1] = (arr[i - 2][1] + arr[i - 1][1] + arr[i][1] + arr[i + 1][1] + arr[i + 2][1]) / 5;
+	}
+	return ar;
 }
