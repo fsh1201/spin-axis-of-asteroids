@@ -4,12 +4,14 @@
 #include "dcf.h"
 #include "dfdcf.h"
 
-#define tmin 5.2	//周期起始值
-#define tmax 5.3	//周期结束值
+#define tmin 4.6	//周期起始值
+#define tmax 4.7	//周期结束值
 #define tstep 0.0001	//周期步长
 #define dp 1e-5
 #define dlp 1e-3
 #define dbp 1e-3
+#define stopc 1	//0：停止条件为误差，1：停止条件为迭代次数
+#define stopin 1300	//最大迭代次数
 
 /*jurkevich方法寻找周期*/
 double jur(double** arr, int na)
@@ -586,11 +588,21 @@ int main()
 			printf("%15.10f %15.10f %15.10f\n", dx[0], dx[1], dx[2]);
 			printf("%f %f %f\n", psid * 24, r2d(la), r2d(be));
 			fsh = 1;
-			if (Abs(dx[0]) < dp && Abs(dx[1]) < dlp && Abs(dx[2]) < dbp)
+			if (stopc == 0)
 			{
-				fsh = 0;
+				if (Abs(dx[0]) < dp && Abs(dx[1]) < dlp && Abs(dx[2]) < dbp)
+				{
+					fsh = 0;
+				}
 			}
-		} while (in<100);
+			if (stopc == 1)
+			{
+				if (in > stopin)
+					fsh = 0;
+			}
+			if (in > 2000)
+				break;
+		} while (fsh);
 		printf("x残差小：%f %f %f\n", X[0] * 24, r2d(mod(X[1], 2 * pi)), r2d(asin(sin(X[2]))));
 		printf("x迭代后：%f %f %f\n\n", psid * 24, r2d(mod(la, 2 * pi)), r2d(asin(sin(be))));
 		printf("%d\n", in);
