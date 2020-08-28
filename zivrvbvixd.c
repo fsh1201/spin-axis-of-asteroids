@@ -3,15 +3,16 @@
 #include "juvf.h"
 #include "dcf.h"
 #include "dfdcf.h"
+#include "lagrange.h"
 
-#define tmin 4.6	//周期起始值
-#define tmax 4.7	//周期结束值
+#define tmin 4.2	//周期起始值
+#define tmax 4.3	//周期结束值
 #define tstep 0.0001	//周期步长
 #define dp 1e-5
 #define dlp 1e-3
 #define dbp 1e-3
-#define stopc 1	//0：停止条件为误差，1：停止条件为迭代次数
-#define stopin 1300	//最大迭代次数
+#define stopc 0	//0：停止条件为误差，1：停止条件为迭代次数
+#define stopin 400	//最大迭代次数
 
 /*jurkevich方法寻找周期*/
 double jur(double** arr, int na)
@@ -228,7 +229,7 @@ int main()
 	char *olcname;
 	olcname = (char*)malloc(100 * sizeof(char));
 	printf("输入光变曲线文件路径：");
-	scanf("%s", olcname);
+	(void)scanf("%s", olcname);
 	FILE* olc;
 	olc = fopen(olcname, "r");
 
@@ -244,18 +245,21 @@ int main()
 	double*** lp;	//数据点
 	lp = (double***)malloc(nlc * sizeof(double));
 
-	double* lmax, * lmin;
+	double* lmax, * lmin;	//亮度最大值,最小值
 	lmax = (double*)malloc(nlc * sizeof(double));
 	lmin = (double*)malloc(nlc * sizeof(double));
 
-	double* delt;
+	double* delt;	//最大时间间隔
 	delt = (double*)malloc(nlc * sizeof(double));
+
+	int* qs = (int*)malloc(nlc * sizeof(int));	//去重的数量
 
 	for (int i = 0; i < nlc; i++)
 	{
 		lmax[i] = -1e9;
 		lmin[i] = 1e9;
 		delt[i] = -1e26;
+		qs[i] = 0;
 		(void)fscanf(olc, "%d %d", &nlp[i][0], &nlp[i][1]);
 		lp[i] = (double**)malloc(nlp[i][0] * sizeof(double));
 		for (int j = 0; j < nlp[i][0]; j++)
@@ -279,6 +283,13 @@ int main()
 				if (delt[i] < lp[i][j][0] - lp[i][j - 1][0])
 				{
 					delt[i] = lp[i][j][0] - lp[i][j - 1][0];
+				}
+				if (lp[i][j][0] - lp[i][j - 1][0] < 0.0005)	//去重
+				{
+					np--;
+					j--;
+					nlp[i][0]--;
+					qs[i]++;
 				}
 			}
 		}
@@ -348,15 +359,16 @@ int main()
 	lag = (double*)malloc(nlc * (nlc - 1) / 2 * sizeof(double));
 	int nxy = 0;	//方程个数
 	int flag = 0;	//检验是否线性相关
+	double* par;	//拉格朗日插值结果
 	for (int i = 0; i < nlc - 1; i++)
 	{
 		if (delt[i] < 0.02 && lp[i][nlp[i][0]-1][0]-lp[i][0][0] > 0.1)	//观测间隔在15分钟内
 		{
 			for (int j = i + 1; j < nlc; j++)
 			{
-				if (delt[j] < 0.02 && lp[j][nlp[j][0] - 1][0] - lp[j][0][0] > 0.1 && lp[i][0][0]<lp[j][0][0] && lp[j][0][0]-lp[i][0][0]<180)	//观测间隔在15分钟内
+				if (delt[j] < 0.02 && lp[j][nlp[j][0] - 1][0] - lp[j][0][0] > 0.1 && lp[i][0][0]<lp[j][0][0] && lp[j][0][0]-lp[i][0][0]<180)	//观测间隔在15分钟内且时间延迟最大值为180天
 				{
-					double ddcf = timedelay_DCF(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn / 24);
+					double ddcf = timedelay_DCF(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn / 24);	//时间延迟
 					if (ddcf != 0)
 					{
 						flag = 0;
@@ -377,7 +389,31 @@ int main()
 							lag[nxy] = ddcf;
 							tsyn[nxy][0] = (min(lp[i][nlp[i][0] - 1][0], lp[j][nlp[j][0] - 1][0] - ddcf) - max(lp[i][0][0], lp[j][0][0] - ddcf)) / 2 + max(lp[i][0][0], lp[j][0][0] - ddcf);
 							tsyn[nxy][1] = tsyn[nxy][0] + ddcf;
+
 							for (int k = 0; k < nlp[i][0] - 1; k++)
+							{
+								if (lp[i][k][0] <= tsyn[nxy][0] && lp[i][k + 1][0] >= tsyn[nxy][0])
+								{
+									par = Lagrange(lp[i] + k - 2, 4, 8, tsyn[nxy][0]);
+									for (int ki = 0; ki < 3; ki++)
+									{
+										rs[nxy][0][ki] = par[ki + 2];
+										re[nxy][0][ki] = par[ki + 5];
+									}
+									free(par);
+									break;
+								}
+							}
+
+							/*par = Lagrange(lp[i], nlp[i][0], 8, tsyn[nxy][0]);
+							for (int k = 0; k < 3; k++)
+							{
+								rs[nxy][0][k] = par[k + 2];
+								re[nxy][0][k] = par[k + 5];
+							}
+							free(par);*/
+
+							/*for (int k = 0; k < nlp[i][0] - 1; k++)
 							{
 								if (lp[i][k][0] <= tsyn[nxy][0] && lp[i][k + 1][0] >= tsyn[nxy][0])
 								{
@@ -388,8 +424,32 @@ int main()
 									}
 									break;
 								}
-							}
+							}*/
+
 							for (int k = 0; k < nlp[j][0] - 1; k++)
+							{
+								if (lp[j][k][0] <= tsyn[nxy][1] && lp[j][k + 1][0] >= tsyn[nxy][1])
+								{
+									par = Lagrange(lp[j] + k - 2, 4, 8, tsyn[nxy][1]);
+									for (int ki = 0; ki < 3; ki++)
+									{
+										rs[nxy][1][ki] = par[ki + 2];
+										re[nxy][1][ki] = par[ki + 5];
+									}
+									free(par);
+									break;
+								}
+							}
+
+							/*par = Lagrange(lp[j], nlp[j][0], 8, tsyn[nxy][1]);
+							for (int k = 0; k < 3; k++)
+							{
+								rs[nxy][1][k] = par[k + 2];
+								re[nxy][1][k] = par[k + 5];
+							}
+							free(par);*/
+
+							/*for (int k = 0; k < nlp[j][0] - 1; k++)
 							{
 								if (lp[j][k][0] <= tsyn[nxy][1] && lp[j][k + 1][0] >= tsyn[nxy][1])
 								{
@@ -400,7 +460,7 @@ int main()
 									}
 									break;
 								}
-							}
+							}*/
 							nxy++;
 						}
 					}
@@ -455,7 +515,8 @@ int main()
 			fprintf(eq, "%.8f ", re[i][1][j]);
 		}
 		fprintf(eq, "\n");
-	}*/
+	}
+	fclose(eq);*/
 
 	FILE* f1, * f2;
 	for (int j = 0; j < nxy; j++)
@@ -482,7 +543,10 @@ int main()
 		{
 			fprintf(f2, "%.4f %.4f\n", lp[xy[j][1]][i][0] - lag[j], lp[xy[j][1]][i][1]);
 		}
+		fclose(f1);
+		fclose(f2);
 	}
+	
 
 	/*自转轴指向初值*/
 	double chi2 = 0;
@@ -607,6 +671,23 @@ int main()
 		printf("x迭代后：%f %f %f\n\n", psid * 24, r2d(mod(la, 2 * pi)), r2d(asin(sin(be))));
 		printf("%d\n", in);
 	}
+	
+	for (int i = 0; i < nlc; i++)
+	{
+		for (int j = 0; j < nlp[i][0]; j++)
+		{
+			free(lp[i][j]);
+		}
+		free(lp[i]);
+		free(nlp[i]);
+	}
+	free(lp);
+	free(nlp);
+	free(qs);
+
+	free(lmax);
+	free(lmin);
+	free(delt);
 
 
 	return 0;
