@@ -5,14 +5,21 @@
 #include "dfdcf.h"
 #include "lagrange.h"
 
-#define tmin 4.2	//周期起始值
-#define tmax 4.3	//周期结束值
+#define tmin 4.1	//周期起始值
+#define tmax 4.2	//周期结束值
 #define tstep 0.0001	//周期步长
 #define dp 1e-5
 #define dlp 1e-3
 #define dbp 1e-3
 #define stopc 0	//0：停止条件为误差，1：停止条件为迭代次数
-#define stopin 400	//最大迭代次数
+#define stopin 1200	//最大迭代次数
+//#define La_inter	//拉格朗日插值
+#define Li_inter	//线性插值
+//#define eq_out	//输出方程
+//#define dcf_test	//输出相关的曲线
+#define Newton_iter	//牛顿法迭代求解
+//#define Tra	//遍历求解
+#define T_asteroid 1826	//小行星公转周期
 
 /*jurkevich方法寻找周期*/
 double jur(double** arr, int na)
@@ -20,16 +27,26 @@ double jur(double** arr, int na)
 	int m = 8;	//jurkevich方法分组数量
 	double** jur;
 	jur = (double**)malloc(m * sizeof(double));
+	if (jur == NULL)
+		exit(20);
 	for (int i = 0; i < m; i++)
 	{
 		jur[i] = (double*)malloc(na * sizeof(double));
+		if (jur[i] == NULL)
+			exit(20);
 	}
 	int* mn;	//每段里的数据点数量
 	mn = (int*)malloc(m * sizeof(int));
+	if (mn == NULL)
+		exit(20);
 	double* Xl;	//每段平均值
 	Xl = (double*)malloc(m * sizeof(double));
+	if (Xl == NULL)
+		exit(20);
 	double* Vl2;	//每段离差平方和
 	Vl2 = (double*)malloc(m * sizeof(double));
+	if (Vl2 == NULL)
+		exit(20);
 	double Vm2 = 0;
 	double temp = 1e26;
 	double T = 0;
@@ -95,12 +112,16 @@ double* rc(double* re, double* rs, double lp, double bp)
 	rsn = nor(rs, 3);
 	double* rse;	//角平分线坐标
 	rse = (double*)malloc(3 * sizeof(double));
+	if (rse == NULL)
+		exit(20);
 	for (int i = 0; i < 3; i++)
 	{
 		rse[i] = ren[i] + rsn[i];
 	}
 	double* rh;	//角平分线黄道坐标
 	rh = (double*)malloc(3 * sizeof(double));
+	if (rh == NULL)
+		exit(20);
 	double rr;
 	rr = sqrt(dotpro(rse, rse, 3));
 	for (int i = 0; i < 3; i++)
@@ -109,6 +130,8 @@ double* rc(double* re, double* rs, double lp, double bp)
 	}
 	double* rc;
 	rc = (double*)malloc(3 * sizeof(double));
+	if (rc == NULL)
+		exit(20);
 	rc[0] = rh[0] * sin(bp) * cos(lp) + rh[1] * sin(bp) * sin(lp) - rh[2] * cos(bp);
 	rc[1] = -rh[0] * sin(lp) + rh[1] * cos(lp);
 	rc[2] = rh[0] * cos(bp) * cos(lp) + rh[1] * cos(bp) * sin(lp) + rh[2] * sin(bp);
@@ -180,15 +203,11 @@ double f(double a, double Ti, double Tj, double Psid, double *rs1, double *re1,d
 double dLdlp(double* r, double lp, double bp)
 {
 	return (r[2] * sin(bp) - sin(BB(r))) * cos(LL(r)) / (cos(bp) * cos(BB(r))) - sin(LL(r)) * sin(LL(r)) * sin(bp);
-	//return ((-r[0] * cos(lp) - r[1] * sin(lp)) * (r[0] * sin(bp) * cos(lp) + r[1] * sin(bp) * sin(lp) - r[2] * cos(bp)) - (-r[0] * sin(lp) + r[1] * cos(lp)) * (-r[0] * sin(bp) * sin(lp) + r[1] * sin(bp) * cos(lp)))
-		// (pow(r[0] * sin(bp) * cos(lp) + r[1] * sin(bp) * sin(lp) - r[2] * cos(bp), 2) + pow(-r[0] * sin(lp) + r[1] * cos(lp), 2));
 }
 
 double dLdbp(double *r, double lp, double bp)
 {
 	return -sin(LL(r)) * tan(BB(r));
-	//return -(-r[0] * sin(lp) + r[1] * cos(lp)) * (r[0] * cos(bp) * cos(lp) + r[1] * cos(bp) * sin(lp) + r[2] * sin(bp))
-		// (pow(r[0] * sin(bp) * cos(lp) + r[1] * sin(bp) * sin(lp) - r[2] * cos(bp), 2) + pow(-r[0] * sin(lp) + r[1] * cos(lp), 2));
 }
 
 double dfdPsid(double Ti, double Tj, double Psid)
@@ -228,6 +247,8 @@ int main()
 {
 	char *olcname;
 	olcname = (char*)malloc(100 * sizeof(char));
+	if (olcname == NULL)
+		exit(20);
 	printf("输入光变曲线文件路径：");
 	(void)scanf("%s", olcname);
 	FILE* olc;
@@ -284,13 +305,13 @@ int main()
 				{
 					delt[i] = lp[i][j][0] - lp[i][j - 1][0];
 				}
-				if (lp[i][j][0] - lp[i][j - 1][0] < 0.0005)	//去重
+				/*if (lp[i][j][0] - lp[i][j - 1][0] < 0.0005)	//去重
 				{
 					np--;
 					j--;
 					nlp[i][0]--;
 					qs[i]++;
-				}
+				}*/
 			}
 		}
 	}
@@ -390,6 +411,8 @@ int main()
 							tsyn[nxy][0] = (min(lp[i][nlp[i][0] - 1][0], lp[j][nlp[j][0] - 1][0] - ddcf) - max(lp[i][0][0], lp[j][0][0] - ddcf)) / 2 + max(lp[i][0][0], lp[j][0][0] - ddcf);
 							tsyn[nxy][1] = tsyn[nxy][0] + ddcf;
 
+
+#ifdef La_inter
 							for (int k = 0; k < nlp[i][0] - 1; k++)
 							{
 								if (lp[i][k][0] <= tsyn[nxy][0] && lp[i][k + 1][0] >= tsyn[nxy][0])
@@ -404,6 +427,8 @@ int main()
 									break;
 								}
 							}
+#endif // La_inter
+
 
 							/*par = Lagrange(lp[i], nlp[i][0], 8, tsyn[nxy][0]);
 							for (int k = 0; k < 3; k++)
@@ -413,7 +438,9 @@ int main()
 							}
 							free(par);*/
 
-							/*for (int k = 0; k < nlp[i][0] - 1; k++)
+
+#ifdef Li_inter
+							for (int k = 0; k < nlp[i][0] - 1; k++)
 							{
 								if (lp[i][k][0] <= tsyn[nxy][0] && lp[i][k + 1][0] >= tsyn[nxy][0])
 								{
@@ -424,8 +451,11 @@ int main()
 									}
 									break;
 								}
-							}*/
+							}
+#endif // Li_inter
 
+
+#ifdef La_inter
 							for (int k = 0; k < nlp[j][0] - 1; k++)
 							{
 								if (lp[j][k][0] <= tsyn[nxy][1] && lp[j][k + 1][0] >= tsyn[nxy][1])
@@ -440,6 +470,8 @@ int main()
 									break;
 								}
 							}
+#endif // La_inter
+
 
 							/*par = Lagrange(lp[j], nlp[j][0], 8, tsyn[nxy][1]);
 							for (int k = 0; k < 3; k++)
@@ -449,7 +481,9 @@ int main()
 							}
 							free(par);*/
 
-							/*for (int k = 0; k < nlp[j][0] - 1; k++)
+
+#ifdef Li_inter
+							for (int k = 0; k < nlp[j][0] - 1; k++)
 							{
 								if (lp[j][k][0] <= tsyn[nxy][1] && lp[j][k + 1][0] >= tsyn[nxy][1])
 								{
@@ -460,7 +494,10 @@ int main()
 									}
 									break;
 								}
-							}*/
+							}
+#endif // Li_inter
+
+
 							nxy++;
 						}
 					}
@@ -491,7 +528,9 @@ int main()
 		}
 	}
 
-	/*FILE* eq;
+
+#ifdef eq_out
+	FILE* eq;
 	eq = fopen("E:\\eq.txt", "w");
 	fprintf(eq, "%d\n", nxy);
 	for (int i = 0; i < nxy; i++)
@@ -516,8 +555,11 @@ int main()
 		}
 		fprintf(eq, "\n");
 	}
-	fclose(eq);*/
+	fclose(eq);
+#endif	//eqout
 
+
+#ifdef dcf_test
 	FILE* f1, * f2;
 	for (int j = 0; j < nxy; j++)
 	{
@@ -545,9 +587,11 @@ int main()
 		}
 		fclose(f1);
 		fclose(f2);
-	}
-	
+	}	
+#endif	//dcftest
 
+
+#ifdef Newton_iter
 	/*自转轴指向初值*/
 	double chi2 = 0;
 	double temp = 1e26;
@@ -671,6 +715,45 @@ int main()
 		printf("x迭代后：%f %f %f\n\n", psid * 24, r2d(mod(la, 2 * pi)), r2d(asin(sin(be))));
 		printf("%d\n", in);
 	}
+#endif //Newton_iter
+
+
+#ifdef Tra
+	double X[3];
+	double temp;
+	double chi2;
+	for (double a = -1.0; a < 2.0; a = a + 2.0)
+	{
+		temp = 1e26;
+		for (int i = 0; i < 3; i++)
+		{
+			X[i] = 0;
+		}
+		for (double psid = T_asteroid / (T_asteroid / (Tsyn / 24) + atan(1 / 3) / (2 * pi) + 1); psid < T_asteroid / (T_asteroid / (Tsyn / 24) - atan(1 / 3) / (2 * pi) - 1); psid = psid + 1e-7)
+		{
+			for (double la = 0; la < 2 * pi; la = la + 0.017)
+			{
+				for (double be = -pi / 2; be < pi / 2; be = be + 0.017)
+				{
+					chi2 = 0;
+					for (int i = 0; i < nxy; i++)
+					{
+						chi2 += pow(f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be, Tsyn / 24), 2);
+					}
+					if (temp > chi2)
+					{
+						temp = chi2;
+						X[0] = psid * 24;
+						X[1] = r2d(la);
+						X[2] = r2d(be);
+					}
+				}
+			}
+		}
+		printf("%f %.6f %f %f\n", a, X[0], X[1], X[2]);
+	}
+#endif // Tra
+
 	
 	for (int i = 0; i < nlc; i++)
 	{
