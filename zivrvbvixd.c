@@ -5,14 +5,14 @@
 #include "dfdcf.h"
 #include "lagrange.h"
 
-#define tmin 4.1	//周期起始值
-#define tmax 4.2	//周期结束值
-#define tstep 0.0001	//周期步长
+#define tmin 0.04	//周期起始值
+#define tmax 2	//周期结束值
+#define tstep 0.00001	//周期步长
 #define dp 1e-5
 #define dlp 1e-3
 #define dbp 1e-3
 #define stopc 0	//0：停止条件为误差，1：停止条件为迭代次数
-#define stopin 1200	//最大迭代次数
+#define stopin 100	//最大迭代次数
 //#define La_inter	//拉格朗日插值
 #define Li_inter	//线性插值
 //#define eq_out	//输出方程
@@ -20,6 +20,8 @@
 #define Newton_iter	//牛顿法迭代求解
 //#define Tra	//遍历求解
 #define T_asteroid 1826	//小行星公转周期
+//#define Fi	//先遍历i
+#define Fj	//先遍历曲线，判断i
 
 /*jurkevich方法寻找周期*/
 double jur(double** arr, int na)
@@ -59,17 +61,84 @@ double jur(double** arr, int na)
 			Xl[i] = 0;
 			Vl2[i] = 0;
 		}
+
+
+#ifdef Fi
 		for (int i = 0; i < m; i++)
 		{
 			for (int j = 0; j < na; j++)
 			{
-				if ((int)(mod(arr[j][0], t/24) / (t/24 / m)) == i)
+				if ((int)(mod(arr[j][0], t) / (t / m)) == i)
 				{
 					jur[i][mn[i]] = arr[j][1];
 					mn[i]++;
 				}
 			}
 		}
+#endif	//Fi
+
+
+#ifdef Fj
+		for (int j = 0; j < na; j++)
+		{
+			int i = (int)(mod(arr[j][0], t) / (t / m));
+			switch (i)
+			{
+			case 0:
+			{
+				jur[0][mn[0]] = arr[j][1];
+				mn[0]++;
+				break;
+			}
+			case 1:
+			{
+				jur[1][mn[1]] = arr[j][1];
+				mn[1]++;
+				break;
+			}
+			case 2:
+			{
+				jur[2][mn[2]] = arr[j][1];
+				mn[2]++;
+				break;
+			}
+			case 3:
+			{
+				jur[3][mn[3]] = arr[j][1];
+				mn[3]++;
+				break;
+			}
+			case 4:
+			{
+				jur[4][mn[4]] = arr[j][1];
+				mn[4]++;
+				break;
+			}
+			case 5:
+			{
+				jur[5][mn[5]] = arr[j][1];
+				mn[5]++;
+				break;
+			}
+			case 6:
+			{
+				jur[6][mn[6]] = arr[j][1];
+				mn[6]++;
+				break;
+			}
+			case 7:
+			{
+				jur[7][mn[7]] = arr[j][1];
+				mn[7]++;
+				break;
+			}
+			default:
+				break;
+			}
+		}
+#endif //Fj
+
+
 		for (int i = 0; i < m; i++)
 		{
 			Xl[i] = mean(jur[i], mn[i]);
@@ -85,6 +154,43 @@ double jur(double** arr, int na)
 			temp = Vm2;
 			T = t;
 		}
+	}
+	double jp[20] = { 0 };
+	int k = 0;
+	for (int i = 0; i < 20; i++)
+	{
+		k = 0;
+		for (int j = 0; j < na; j++)
+		{
+			if ((int)(mod(arr[j][0], T) / (T / 20)) == i)
+			{
+				jp[i] += arr[j][1];
+				k++;
+			}
+		}
+		jp[i] = jp[i] / k;
+	}
+	
+	int change = 0;
+	for (int i = 0; i < 20 - 2; i++)
+	{
+		if ((jp[i] - jp[i + 1] < 0 && jp[i + 1] - jp[i + 2]>0) || (jp[i] - jp[i + 1] > 0 && jp[i + 1] - jp[i + 2] < 0))
+		{
+			change++;
+		}
+	}
+	printf("%d\n",change);
+	if (change > 5)
+	{
+		T = T / 2;
+	}
+	if (change < 3)
+	{
+		T = T * 2;
+	}
+	if (change > 8)
+	{
+		T = T / 3;
 	}
 	for (int i = 0; i < m; i++)
 	{
@@ -389,7 +495,7 @@ int main()
 			{
 				if (delt[j] < 0.02 && lp[j][nlp[j][0] - 1][0] - lp[j][0][0] > 0.1 && lp[i][0][0]<lp[j][0][0] && lp[j][0][0]-lp[i][0][0]<180)	//观测间隔在15分钟内且时间延迟最大值为180天
 				{
-					double ddcf = timedelay_DCF(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn / 24);	//时间延迟
+					double ddcf = timedelay_DCF(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn);	//时间延迟
 					if (ddcf != 0)
 					{
 						flag = 0;
@@ -601,11 +707,11 @@ int main()
 	double la, be;
 	double dx[3] = { 0 };
 	int in = 0;
-	double psid = Tsyn / 24;
+	double psid = Tsyn;
 	double X[3] = { 0 };
 	for (double a = -1.0; a < 2.0; a = a + 2.0)
 	{
-		psid = Tsyn / 24;
+		psid = Tsyn;
 		temp = 1e26;
 		for (double l = 0; l <= 2 * pi; l = l + 0.1)
 		{
@@ -651,7 +757,7 @@ int main()
 			chi2 = 0;
 			for (int i = 0; i < nxy; i++)
 			{
-				F[i][0] = f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be, Tsyn / 24);
+				F[i][0] = f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be, Tsyn);
 				chi2 = chi2 + pow(F[i][0], 2);
 				J[i][0] = dfdPsid(tsyn[i][0], tsyn[i][1], psid);
 				J[i][1] = dfdlp(a, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be);

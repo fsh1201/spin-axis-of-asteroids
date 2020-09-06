@@ -69,7 +69,7 @@ double timedelay_DCF(double** arr1, double** arr2, int n1, int n2, double tsyn)
 	}
 	free(s);
 	free(sf);
-	if (temp > 0.9 && (min(arr1[n1 - 1][0], arr2[n2 - 1][0] - T) - max(arr1[0][0], arr2[0][0] - T)) * 24 > 1 && (Abs(mod(T, tsyn) / tsyn - 1) < 0.2 || Abs(mod(T, tsyn) / tsyn - 1) > 0.8))
+	if (temp > 0.98 && (min(arr1[n1 - 1][0], arr2[n2 - 1][0] - T) - max(arr1[0][0], arr2[0][0] - T)) * 24 > 1)
 	{
 		return T;
 	}
