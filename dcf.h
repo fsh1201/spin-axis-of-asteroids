@@ -1,10 +1,10 @@
 #include "juvf.h"
 
-/*ç¦»æ•£ç›¸å…³å‡½æ•°*/
+/*ÀëÉ¢Ïà¹Øº¯Êı*/
 double DCF(double** arr1, double** arr2, int na1, int na2, double dt, double dtau);
 
-/*DCFæ±‚æ—¶é—´å»¶è¿Ÿ*/
+/*DCFÇóÊ±¼äÑÓ³Ù*/
 double timedelay_DCF(double** arr1, double** arr2, int n1, int n2, double tsyn);
 
-/*ç¦»æ•£ç›¸å…³å‡½æ•°_Jurkevich*/
+/*ÀëÉ¢Ïà¹Øº¯Êı_Jurkevich*/
 double DCF_jur(double** arr1, double** arr2, int na1, int na2, double dt, double dtau);
