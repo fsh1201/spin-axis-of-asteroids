@@ -22,6 +22,7 @@
 #define T_asteroid 1826	//小行星公转周期
 //#define Fi	//先遍历i
 #define Fj	//先遍历曲线，判断i
+#define T_test	//周期判定
 
 /*jurkevich方法寻找周期*/
 double jur(double** arr, int na)
@@ -155,6 +156,9 @@ double jur(double** arr, int na)
 			T = t;
 		}
 	}
+
+
+#ifdef T_test
 	double jp[20] = { 0 };
 	int k = 0;
 	for (int i = 0; i < 20; i++)
@@ -170,7 +174,6 @@ double jur(double** arr, int na)
 		}
 		jp[i] = jp[i] / k;
 	}
-	
 	int change = 0;
 	for (int i = 0; i < 20 - 2; i++)
 	{
@@ -192,6 +195,9 @@ double jur(double** arr, int na)
 	{
 		T = T / 3;
 	}
+#endif	//T_test
+
+
 	for (int i = 0; i < m; i++)
 	{
 		free(jur[i]);
