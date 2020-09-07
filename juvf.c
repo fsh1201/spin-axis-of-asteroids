@@ -236,8 +236,6 @@ double* crosspro(double* xulx1, double* xulx2)
 {
 	double* s;
 	s = (double*)malloc(3 * sizeof(double));
-	if (s == NULL)
-		exit(20);
 	s[0] = xulx1[1] * xulx2[2] - xulx1[2] * xulx2[1];
 	s[1] = xulx1[2] * xulx2[0] - xulx1[0] * xulx2[2];
 	s[2] = xulx1[0] * xulx2[1] - xulx1[1] * xulx2[0];
@@ -249,8 +247,6 @@ double* nor(double* xulx, int na)
 {
 	double* s;
 	s = (double*)malloc(na * sizeof(double));
-	if (s == NULL)
-		exit(20);
 	double a;
 	a = dotpro(xulx, xulx, na);
 	for (int i = 0; i < na; i++)
