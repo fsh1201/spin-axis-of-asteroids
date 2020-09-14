@@ -6,34 +6,35 @@
 #include "dfdcf.h"
 #include "lagrange.h"
 
-#define tmin 0.3026	//å‘¨æœŸèµ·å§‹å€¼
-#define tmax 0.3036	//å‘¨æœŸç»“æŸå€¼
-#define tstep 0.000001	//å‘¨æœŸæ­¥é•¿
+#define tmin 0.6995	//ÖÜÆÚÆğÊ¼Öµ
+#define tmax 0.7005	//ÖÜÆÚ½áÊøÖµ
+#define tstep 0.000001	//ÖÜÆÚ²½³¤
 #define dp 1e-5
 #define dlp 1e-3
 #define dbp 1e-3
-#define stopc 0	//0ï¼šåœæ­¢æ¡ä»¶ä¸ºè¯¯å·®ï¼Œ1ï¼šåœæ­¢æ¡ä»¶ä¸ºè¿­ä»£æ¬¡æ•°
-#define stopin 100	//æœ€å¤§è¿­ä»£æ¬¡æ•°
-//#define La_inter	//æ‹‰æ ¼æœ—æ—¥æ’å€¼
-#define Li_inter	//çº¿æ€§æ’å€¼
-//#define eq_out	//è¾“å‡ºæ–¹ç¨‹
-//#define dcf_test	//è¾“å‡ºç›¸å…³çš„æ›²çº¿
-#define Newton_iter	//ç‰›é¡¿æ³•è¿­ä»£æ±‚è§£
-//#define Tra	//éå†æ±‚è§£
-#define T_asteroid 1826	//å°è¡Œæ˜Ÿå…¬è½¬å‘¨æœŸ
-//#define Fi	//å…ˆéå†i
-#define Fj	//å…ˆéå†æ›²çº¿ï¼Œåˆ¤æ–­i
-//#define T_test	//å‘¨æœŸåˆ¤å®š
+#define stopc 0	//0£ºÍ£Ö¹Ìõ¼şÎªÎó²î£¬1£ºÍ£Ö¹Ìõ¼şÎªµü´ú´ÎÊı
+#define stopin 100	//×î´óµü´ú´ÎÊı
+//#define La_inter	//À­¸ñÀÊÈÕ²åÖµ
+#define Li_inter	//ÏßĞÔ²åÖµ
+//#define eq_out	//Êä³ö·½³Ì
+//#define dcf_test	//Êä³öÏà¹ØµÄÇúÏß
+#define Newton_iter	//Å£¶Ù·¨µü´úÇó½â
+//#define Tra	//±éÀúÇó½â
+#define T_asteroid 1826	//Ğ¡ĞĞĞÇ¹«×ªÖÜÆÚ
+//#define Fi	//ÏÈ±éÀúi
+//#define Fj	//ÏÈ±éÀúÇúÏß£¬ÅĞ¶Ïi
+//#define T_test	//ÖÜÆÚÅĞ¶¨
 //#define T_JUR	//Jurkevich
-#define T_JUR_DCF	//Jurkevich_DCF
-//#define lcf_out	//å…‰å˜æ›²çº¿è¾“å‡º
-#define lcf_out_jur_dcf	//å…‰å˜æ›²çº¿è¾“å‡º
-//#define spin_axis	//æ±‚è‡ªè½¬è½´
+//#define T_JUR_DCF	//Jurkevich_DCF
+//#define lcf_out	//¹â±äÇúÏßÊä³ö
+//#define lcf_out_jur_dcf	//¹â±äÇúÏßÊä³ö
+//#define spin_axis	//Çó×Ô×ªÖá
+#define lpc_out
 
-/*jurkevichæ–¹æ³•å¯»æ‰¾å‘¨æœŸ*/
+/*jurkevich·½·¨Ñ°ÕÒÖÜÆÚ*/
 double jur(double** arr, int na)
 {
-	int m = 8;	//jurkevichæ–¹æ³•åˆ†ç»„æ•°é‡
+	int m = 8;	//jurkevich·½·¨·Ö×éÊıÁ¿
 	double** jur;
 	jur = (double**)malloc(m * sizeof(double));
 	if (jur == NULL)
@@ -44,15 +45,15 @@ double jur(double** arr, int na)
 		if (jur[i] == NULL)
 			exit(20);
 	}
-	int* mn;	//æ¯æ®µé‡Œçš„æ•°æ®ç‚¹æ•°é‡
+	int* mn;	//Ã¿¶ÎÀïµÄÊı¾İµãÊıÁ¿
 	mn = (int*)malloc(m * sizeof(int));
 	if (mn == NULL)
 		exit(20);
-	double* Xl;	//æ¯æ®µå¹³å‡å€¼
+	double* Xl;	//Ã¿¶ÎÆ½¾ùÖµ
 	Xl = (double*)malloc(m * sizeof(double));
 	if (Xl == NULL)
 		exit(20);
-	double* Vl2;	//æ¯æ®µç¦»å·®å¹³æ–¹å’Œ
+	double* Vl2;	//Ã¿¶ÎÀë²îÆ½·½ºÍ
 	Vl2 = (double*)malloc(m * sizeof(double));
 	if (Vl2 == NULL)
 		exit(20);
@@ -266,13 +267,13 @@ double dN(double ti, double tj, double tsyn)
 	return a;
 }
 
-/*äºŒåˆ†çº¿èµ¤é“åæ ‡*/
+/*¶ş·ÖÏß³àµÀ×ø±ê*/
 double* rc(double* re, double* rs, double lp, double bp)
 {
-	double* ren, * rsn;	//å½’ä¸€åŒ–ååæ ‡
+	double* ren, * rsn;	//¹éÒ»»¯ºó×ø±ê
 	ren = nor(re, 3);
 	rsn = nor(rs, 3);
-	double* rse;	//è§’å¹³åˆ†çº¿åæ ‡
+	double* rse;	//½ÇÆ½·ÖÏß×ø±ê
 	rse = (double*)malloc(3 * sizeof(double));
 	if (rse == NULL)
 		exit(20);
@@ -280,7 +281,7 @@ double* rc(double* re, double* rs, double lp, double bp)
 	{
 		rse[i] = ren[i] + rsn[i];
 	}
-	double* rh;	//è§’å¹³åˆ†çº¿é»„é“åæ ‡
+	double* rh;	//½ÇÆ½·ÖÏß»ÆµÀ×ø±ê
 	rh = (double*)malloc(3 * sizeof(double));
 	if (rh == NULL)
 		exit(20);
@@ -306,7 +307,7 @@ double* rc(double* re, double* rs, double lp, double bp)
 	return rc;
 }
 
-/*äºŒåˆ†çº¿èµ¤ç»*/
+/*¶ş·ÖÏß³à¾­*/
 double LL(double* r)
 {
 	double l;
@@ -322,7 +323,7 @@ double LL(double* r)
 	return l;
 }
 
-/*äºŒåˆ†çº¿èµ¤çº¬*/
+/*¶ş·ÖÏß³àÎ³*/
 double BB(double* r)
 {
 	double b;
@@ -411,33 +412,33 @@ int main()
 	olcname = (char*)malloc(100 * sizeof(char));
 	if (olcname == NULL)
 		exit(20);
-	printf("è¾“å…¥å…‰å˜æ›²çº¿æ–‡ä»¶è·¯å¾„ï¼š");
+	printf("ÊäÈë¹â±äÇúÏßÎÄ¼şÂ·¾¶£º");
 	(void)scanf("%s", olcname);
 	FILE* olc;
 	olc = fopen(olcname, "r");
 
 	int np = 0;
-	int nlc;	//å…‰å˜æ›²çº¿æ•°é‡
+	int nlc;	//¹â±äÇúÏßÊıÁ¿
 	(void)fscanf(olc, "%d", &nlc);
-	int** nlp;	//æ•°æ®ç‚¹æ•°é‡
+	int** nlp;	//Êı¾İµãÊıÁ¿
 	nlp = (int**)malloc(nlc * sizeof(int));
 	for (int i = 0; i < nlc; i++)
 	{
 		nlp[i] = (int*)malloc(2 * sizeof(int));
 	}
-	double*** lp;	//æ•°æ®ç‚¹
+	double*** lp;	//Êı¾İµã
 	lp = (double***)malloc(nlc * sizeof(double));
 	double*** lpc_j;
 	lpc_j = (double***)malloc(nlc * sizeof(double));
 
-	double* lmax, * lmin;	//äº®åº¦æœ€å¤§å€¼,æœ€å°å€¼
+	double* lmax, * lmin;	//ÁÁ¶È×î´óÖµ,×îĞ¡Öµ
 	lmax = (double*)malloc(nlc * sizeof(double));
 	lmin = (double*)malloc(nlc * sizeof(double));
 
-	double* delt;	//æœ€å¤§æ—¶é—´é—´éš”
+	double* delt;	//×î´óÊ±¼ä¼ä¸ô
 	delt = (double*)malloc(nlc * sizeof(double));
 
-	int* qs = (int*)malloc(nlc * sizeof(int));	//å»é‡çš„æ•°é‡
+	int* qs = (int*)malloc(nlc * sizeof(int));	//È¥ÖØµÄÊıÁ¿
 
 	for (int i = 0; i < nlc; i++)
 	{
@@ -472,7 +473,7 @@ int main()
 				{
 					delt[i] = lp[i][j][0] - lp[i][j - 1][0];
 				}
-				/*if (lp[i][j][0] - lp[i][j - 1][0] < 0.0005)	//å»é‡
+				/*if (lp[i][j][0] - lp[i][j - 1][0] < 0.0005)	//È¥ÖØ
 				{
 					np--;
 					j--;
@@ -503,7 +504,7 @@ int main()
 		}
 	}
 
-	/*æµ‹è¯•jurkevich*/
+	/*²âÊÔjurkevich*/
 	/*double** xy;
 	xy = (double**)malloc(1000 * sizeof(double));
 	for (int i = 0; i < 1000; i++)
@@ -519,14 +520,14 @@ int main()
 
 
 #ifdef T_JUR
-	double Tsyn = jur(lpc, npc);	//ä¼šåˆå‘¨æœŸ
-	printf("%f\n", Tsyn);
+	double Tsyn_JUR = jur(lpc, npc);	//»áºÏÖÜÆÚ
+	printf("%f\n", Tsyn_JUR);
 #endif	//T_JUR
 
 
 #ifdef T_JUR_DCF
-	double Tsyn = Jur_DCF(lp, lpc_j, nlc, nlp);
-	printf("%f\n", Tsyn);
+	double Tsyn_J_D = Jur_DCF(lp, lpc_j, nlc, nlp);
+	printf("%f\n", Tsyn_J_D);
 #endif	//T_JUR_DCF
 
 
@@ -550,16 +551,69 @@ int main()
 	{
 		for (int j = 0; j < nlp[i][0]; j++)
 		{
-			fprintf(lcf, "%f %f\n", lp[i][j][0] - (lp[i][0][0] - mod(lp[i][0][0], Tsyn)), lp[i][j][1]);
+			fprintf(lcf, "%f %f\n", lp[i][j][0] - (lp[i][0][0] - mod(lp[i][0][0], Tsyn_JUR)), lp[i][j][1]);
+		}
+	}
+	FILE* lcf1;
+	lcf1 = fopen("E:\\lcf_JD.txt", "w");
+	for (int i = 0; i < nlc; i++)
+	{
+		for (int j = 0; j < nlp[i][0]; j++)
+		{
+			fprintf(lcf1, "%f %f\n", lp[i][j][0] - (lp[i][0][0] - mod(lp[i][0][0], Tsyn_J_D)), lp[i][j][1]);
 		}
 	}
 #endif // lcf_out_jur_dcf
 
 
+#ifdef lpc_out
+	char* lcs_out = (char*)malloc(100 * sizeof(char));
+	printf("ÊäÈë¼ÆËãµÄ¹â±äÇúÏßÂ·¾¶£º");
+	scanf("%s", lcs_out);
+	FILE* olcs = fopen(lcs_out, "r");
+	double* inlc = (double*)malloc(npc * sizeof(double));
+	for (int i = 0; i < npc; i++)
+	{
+		(void)fscanf(olcs, "%lf", &inlc[i]);
+	}
+	FILE* f1, * f2;
+	int on = 0;
+	double LcChi2 = 0;
+	for (int j = 0; j < nlc; j++)
+	{
+		char tname1[50] = "E:\\";
+		char tname2[50] = "E:\\";
+		char s[10];
+		char s1[10] = "1.txt";
+		char s2[10] = "2.txt";
+		itoa(j, s, 10);
+		strcat(tname1, s);
+		strcat(tname1, s1);
+		strcat(tname2, s);
+		strcat(tname2, s2);
+
+		f1 = fopen(tname1, "w");
+		f2 = fopen(tname2, "w");
+
+		for (int i = 0; i < nlp[j][0]; i++)
+		{
+			fprintf(f1, "%f %f\n", lp[j][i][0], lp[j][i][1]);
+			fprintf(f2, "%f %f\n", lp[j][i][0], inlc[on]);
+			LcChi2 += pow(inlc[on] - lp[j][i][1], 2);
+			inlc++;
+		}
+
+		fclose(f1);
+		fclose(f2);
+	}
+	printf("%f\n", LcChi2);
+#endif // lpc_out
+
+
 
 #ifdef spin_axis
-	double*** rs, *** re;	//ç›¸åŒç‰¹å¾æ—¶é—´ç‚¹çš„å¤ªé˜³åæ ‡ä¸åœ°çƒåæ ‡
-	double** tsyn;	//ä¼šåˆæ—¶é—´
+	double*** rs, *** re;	//ÏàÍ¬ÌØÕ÷Ê±¼äµãµÄÌ«Ñô×ø±êÓëµØÇò×ø±ê
+	double** tsyn;	//»áºÏÊ±¼ä
 	tsyn = (double**)malloc(nlc * (nlc - 1) / 2 * sizeof(double));
 	rs = (double***)malloc(nlc * (nlc - 1) / 2 * sizeof(double));
 	re = (double***)malloc(nlc * (nlc - 1) / 2 * sizeof(double));
@@ -575,26 +629,26 @@ int main()
 		}
 	}
 
-	int** xy;	//ä¼šåˆå…‰å˜æ›²çº¿
+	int** xy;	//»áºÏ¹â±äÇúÏß
 	xy = (int**)malloc(nlc * (nlc - 1) / 2 * sizeof(int));
 	for (int i = 0; i < nlc * (nlc - 1) / 2; i++)
 	{
 		xy[i] = (int*)malloc(2 * sizeof(int));
 	}
-	double* lag;	//æ—¶é—´å»¶è¿Ÿ
+	double* lag;	//Ê±¼äÑÓ³Ù
 	lag = (double*)malloc(nlc * (nlc - 1) / 2 * sizeof(double));
-	int nxy = 0;	//æ–¹ç¨‹ä¸ªæ•°
-	int flag = 0;	//æ£€éªŒæ˜¯å¦çº¿æ€§ç›¸å…³
-	double* par;	//æ‹‰æ ¼æœ—æ—¥æ’å€¼ç»“æœ
+	int nxy = 0;	//·½³Ì¸öÊı
+	int flag = 0;	//¼ìÑéÊÇ·ñÏßĞÔÏà¹Ø
+	double* par;	//À­¸ñÀÊÈÕ²åÖµ½á¹û
 	for (int i = 0; i < nlc - 1; i++)
 	{
-		if (delt[i] < 0.02 && lp[i][nlp[i][0]-1][0]-lp[i][0][0] > 0.1)	//è§‚æµ‹é—´éš”åœ¨15åˆ†é’Ÿå†…
+		if (delt[i] < 0.02 && lp[i][nlp[i][0]-1][0]-lp[i][0][0] > 0.1)	//¹Û²â¼ä¸ôÔÚ15·ÖÖÓÄÚ
 		{
 			for (int j = i + 1; j < nlc; j++)
 			{
-				if (delt[j] < 0.02 && lp[j][nlp[j][0] - 1][0] - lp[j][0][0] > 0.1 && lp[i][0][0]<lp[j][0][0] && lp[j][0][0]-lp[i][0][0]<180)	//è§‚æµ‹é—´éš”åœ¨15åˆ†é’Ÿå†…ä¸”æ—¶é—´å»¶è¿Ÿæœ€å¤§å€¼ä¸º180å¤©
+				if (delt[j] < 0.02 && lp[j][nlp[j][0] - 1][0] - lp[j][0][0] > 0.1 && lp[i][0][0]<lp[j][0][0] && lp[j][0][0]-lp[i][0][0]<180)	//¹Û²â¼ä¸ôÔÚ15·ÖÖÓÄÚÇÒÊ±¼äÑÓ³Ù×î´óÖµÎª180Ìì
 				{
-					double ddcf = timedelay_DCF(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn);	//æ—¶é—´å»¶è¿Ÿ
+					double ddcf = timedelay_DCF(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn);	//Ê±¼äÑÓ³Ù
 					if (ddcf != 0)
 					{
 						flag = 0;
@@ -602,13 +656,13 @@ int main()
 						{
 							for (int xyj = 0; xyj < nxy; xyj++)
 							{
-								if (xy[xyi][0] == xy[xyj][0] && xy[xyi][1] == i && xy[xyj][1] == j)	//çº¿æ€§ç›¸å…³
+								if (xy[xyi][0] == xy[xyj][0] && xy[xyi][1] == i && xy[xyj][1] == j)	//ÏßĞÔÏà¹Ø
 								{
 									flag = 1;
 								}
 							}
 						}
-						if (!flag)	//çº¿æ€§æ— å…³
+						if (!flag)	//ÏßĞÔÎŞ¹Ø
 						{
 							xy[nxy][0] = i;
 							xy[nxy][1] = j;
@@ -713,7 +767,7 @@ int main()
 	printf("%d\n", nxy);
 	if (nxy < 5)
 	{
-		printf("æœªæ‰¾åˆ°è¶³å¤Ÿæ•°é‡çš„æ–¹ç¨‹ã€‚");
+		printf("Î´ÕÒµ½×ã¹»ÊıÁ¿µÄ·½³Ì¡£");
 		exit(20);
 	}
 	for (int i = 0; i < nxy; i++)
@@ -797,7 +851,7 @@ int main()
 
 
 #ifdef Newton_iter
-	/*è‡ªè½¬è½´æŒ‡å‘åˆå€¼*/
+	/*×Ô×ªÖáÖ¸Ïò³õÖµ*/
 	double chi2 = 0;
 	double temp = 1e26;
 
@@ -916,8 +970,8 @@ int main()
 			if (in > 2000)
 				break;
 		} while (fsh);
-		printf("xæ®‹å·®å°ï¼š%f %f %f\n", X[0] * 24, r2d(mod(X[1], 2 * pi)), r2d(asin(sin(X[2]))));
-		printf("xè¿­ä»£åï¼š%f %f %f\n\n", psid * 24, r2d(mod(la, 2 * pi)), r2d(asin(sin(be))));
+		printf("x²Ğ²îĞ¡£º%f %f %f\n", X[0] * 24, r2d(mod(X[1], 2 * pi)), r2d(asin(sin(X[2]))));
+		printf("xµü´úºó£º%f %f %f\n\n", psid * 24, r2d(mod(la, 2 * pi)), r2d(asin(sin(be))));
 		printf("%d\n", in);
 	}
 #endif //Newton_iter
