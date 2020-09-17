@@ -6,14 +6,14 @@
 #include "dfdcf.h"
 #include "lagrange.h"
 
-#define tmin 0.29	//周期起始值
-#define tmax 0.31	//周期结束值
+#define tmin 0.299	//周期起始值
+#define tmax 0.301	//周期结束值
 #define tstep 0.000001	//周期步长
 #define dp 1e-5
 #define dlp 1e-3
 #define dbp 1e-3
-#define alpha 0.01	//学习率
-#define stopc 1	//0：停止条件为误差，1：停止条件为迭代次数
+#define alpha 0.1	//学习率
+#define stopc 0	//0：停止条件为误差，1：停止条件为迭代次数
 #define stopin 2000	//最大迭代次数
 //#define La_inter	//拉格朗日插值
 #define Li_inter	//线性插值
@@ -29,8 +29,10 @@
 //#define T_JUR_DCF	//Jurkevich_DCF
 //#define lcf_out	//光变曲线输出
 #define lcf_out_jur_dcf	//光变曲线输出
-//#define spin_axis	//求自转轴
+#define spin_axis	//求自转轴
 //#define lpc_out
+//#define f_fun
+#define f_man
 
 /*jurkevich方法寻找周期*/
 double jur(double** arr, int na)
@@ -332,20 +334,61 @@ double BB(double* r)
 	return b;
 }
 
+
 double f(double a, double Ti, double Tj, double Psid, double *rs1, double *re1,double *rs2,double*re2, double lp, double bp,double Psyn)
 {
 	double dn = dN(Ti, Tj, Psyn);
+#ifdef f_fun
 	double* r1, * r2;
 	r1 = rc(re1, rs1, lp, bp);
 	r2 = rc(re2, rs2, lp, bp);
+#endif	//f_fun
+#ifdef f_man
+	double Rs1 = sqrt(pow(rs1[0], 2) + pow(rs1[1], 2) + pow(rs1[2], 2));
+	double Rs2 = sqrt(pow(rs2[0], 2) + pow(rs2[1], 2) + pow(rs2[2], 2));
+	double Re1 = sqrt(pow(re1[0], 2) + pow(re1[1], 2) + pow(re1[2], 2));
+	double Re2 = sqrt(pow(re2[0], 2) + pow(re2[1], 2) + pow(re2[2], 2));
+
+	double rsx1 = rs1[0] / Rs1;
+	double rsy1 = rs1[1] / Rs1;
+	double rsz1 = rs1[2] / Rs1;
+
+	double rsx2 = rs2[0] / Rs2;
+	double rsy2 = rs2[1] / Rs2;
+	double rsz2 = rs2[2] / Rs2;
+
+	double rex1 = re1[0] / Re1;
+	double rey1 = re1[1] / Re1;
+	double rez1 = re1[2] / Re1;
+
+	double rex2 = re2[0] / Re2;
+	double rey2 = re2[1] / Re2;
+	double rez2 = re2[2] / Re2;
+
+	double r1[3], r2[3];
+
+	double rx1 = rsx1 + rex1;
+	double ry1 = rsy1 + rey1;
+	double rz1 = rsz1 + rez1;
+
+	double rx2 = rsx2 + rex2;
+	double ry2 = rsy2 + rey2;
+	double rz2 = rsz2 + rez2;
+
+	r1[0] = rx1 * sin(bp) * cos(lp) + ry1 * sin(bp) * sin(lp) - rz1 * cos(bp);
+	r1[1] = -rx1 * sin(lp) + ry1 * cos(lp);
+	r1[2] = rx1 * cos(bp) * cos(lp) + ry1 * cos(bp) * sin(lp) + rz1 * sin(bp);
+
+	r2[0] = rx2 * sin(bp) * cos(lp) + ry2 * sin(bp) * sin(lp) - rz2 * cos(bp);
+	r2[1] = -rx2 * sin(lp) + ry2 * cos(lp);
+	r2[2] = rx2 * cos(bp) * cos(lp) + ry2 * cos(bp) * sin(lp) + rz2 * sin(bp);
+#endif	//f_man
 	double L1, L2;
 	L1 = LL(r1);
 	L2 = LL(r2);
 	double f;
 	f = dn + a * (L1 - L2) / (2 * pi) - (Ti - Tj) / Psid;
 
-	free(r1);
-	free(r2);
 
 	if (L1 - L2 < -pi)
 	{
@@ -364,6 +407,7 @@ double f(double a, double Ti, double Tj, double Psid, double *rs1, double *re1,d
 	}
 }
 
+
 double dLdlp(double* r, double lp, double bp)
 {
 	return (r[2] * sin(bp) - sin(BB(r))) * cos(LL(r)) / (cos(bp) * cos(BB(r))) - sin(LL(r)) * sin(LL(r)) * sin(bp);
@@ -381,26 +425,92 @@ double dfdPsid(double Ti, double Tj, double Psid)
 
 double dfdlp(double a, double* rs1, double *re1, double *rs2,double *re2,double lp, double bp)
 {
-	double* ri, * rj;
-	ri = rc(re1, rs1, lp, bp);
-	rj = rc(re2, rs2, lp, bp);
-	double ddd= a / (2 * pi) * (dLdlp(ri, lp, bp) - dLdlp(rj, lp, bp));
+	double Rs1 = sqrt(pow(rs1[0], 2) + pow(rs1[1], 2) + pow(rs1[2], 2));
+	double Rs2 = sqrt(pow(rs2[0], 2) + pow(rs2[1], 2) + pow(rs2[2], 2));
+	double Re1 = sqrt(pow(re1[0], 2) + pow(re1[1], 2) + pow(re1[2], 2));
+	double Re2 = sqrt(pow(re2[0], 2) + pow(re2[1], 2) + pow(re2[2], 2));
 
-	free(ri);
-	free(rj);
+	double rsx1 = rs1[0] / Rs1;
+	double rsy1 = rs1[1] / Rs1;
+	double rsz1 = rs1[2] / Rs1;
+
+	double rsx2 = rs2[0] / Rs2;
+	double rsy2 = rs2[1] / Rs2;
+	double rsz2 = rs2[2] / Rs2;
+
+	double rex1 = re1[0] / Re1;
+	double rey1 = re1[1] / Re1;
+	double rez1 = re1[2] / Re1;
+
+	double rex2 = re2[0] / Re2;
+	double rey2 = re2[1] / Re2;
+	double rez2 = re2[2] / Re2;
+
+	double r1[3], r2[3];
+
+	double rx1 = rsx1 + rex1;
+	double ry1 = rsy1 + rey1;
+	double rz1 = rsz1 + rez1;
+
+	double rx2 = rsx2 + rex2;
+	double ry2 = rsy2 + rey2;
+	double rz2 = rsz2 + rez2;
+
+	r1[0] = rx1 * sin(bp) * cos(lp) + ry1 * sin(bp) * sin(lp) - rz1 * cos(bp);
+	r1[1] = -rx1 * sin(lp) + ry1 * cos(lp);
+	r1[2] = rx1 * cos(bp) * cos(lp) + ry1 * cos(bp) * sin(lp) + rz1 * sin(bp);
+
+	r2[0] = rx2 * sin(bp) * cos(lp) + ry2 * sin(bp) * sin(lp) - rz2 * cos(bp);
+	r2[1] = -rx2 * sin(lp) + ry2 * cos(lp);
+	r2[2] = rx2 * cos(bp) * cos(lp) + ry2 * cos(bp) * sin(lp) + rz2 * sin(bp);
+	double ddd= a / (2 * pi) * (dLdlp(r1, lp, bp) - dLdlp(r2, lp, bp));
 	
 	return ddd;
 }
 
 double dfdbp(double a, double* rs1, double* re1, double* rs2, double* re2,double lp,double bp)
 {
-	double* ri, * rj;
-	ri = rc(re1, rs1, lp, bp);
-	rj = rc(re2, rs2, lp, bp);
-	double ddd = a / (2 * pi) * (dLdbp(ri, lp, bp) - dLdbp(rj, lp, bp));
+	double Rs1 = sqrt(pow(rs1[0], 2) + pow(rs1[1], 2) + pow(rs1[2], 2));
+	double Rs2 = sqrt(pow(rs2[0], 2) + pow(rs2[1], 2) + pow(rs2[2], 2));
+	double Re1 = sqrt(pow(re1[0], 2) + pow(re1[1], 2) + pow(re1[2], 2));
+	double Re2 = sqrt(pow(re2[0], 2) + pow(re2[1], 2) + pow(re2[2], 2));
 
-	free(ri);
-	free(rj);
+	double rsx1 = rs1[0] / Rs1;
+	double rsy1 = rs1[1] / Rs1;
+	double rsz1 = rs1[2] / Rs1;
+
+	double rsx2 = rs2[0] / Rs2;
+	double rsy2 = rs2[1] / Rs2;
+	double rsz2 = rs2[2] / Rs2;
+
+	double rex1 = re1[0] / Re1;
+	double rey1 = re1[1] / Re1;
+	double rez1 = re1[2] / Re1;
+
+	double rex2 = re2[0] / Re2;
+	double rey2 = re2[1] / Re2;
+	double rez2 = re2[2] / Re2;
+
+	double r1[3], r2[3];
+
+	double rx1 = rsx1 + rex1;
+	double ry1 = rsy1 + rey1;
+	double rz1 = rsz1 + rez1;
+
+	double rx2 = rsx2 + rex2;
+	double ry2 = rsy2 + rey2;
+	double rz2 = rsz2 + rez2;
+
+	r1[0] = rx1 * sin(bp) * cos(lp) + ry1 * sin(bp) * sin(lp) - rz1 * cos(bp);
+	r1[1] = -rx1 * sin(lp) + ry1 * cos(lp);
+	r1[2] = rx1 * cos(bp) * cos(lp) + ry1 * cos(bp) * sin(lp) + rz1 * sin(bp);
+
+	r2[0] = rx2 * sin(bp) * cos(lp) + ry2 * sin(bp) * sin(lp) - rz2 * cos(bp);
+	r2[1] = -rx2 * sin(lp) + ry2 * cos(lp);
+	r2[2] = rx2 * cos(bp) * cos(lp) + ry2 * cos(bp) * sin(lp) + rz2 * sin(bp);
+	double ddd = a / (2 * pi) * (dLdbp(r1, lp, bp) - dLdbp(r2, lp, bp));
+
+	
 
 	return ddd;
 }
@@ -823,8 +933,8 @@ int main()
 	FILE* f1, * f2;
 	for (int j = 0; j < nxy; j++)
 	{
-		char tname1[50] = "E:\\";
-		char tname2[50] = "E:\\";
+		char tname1[50] = "E:\\dcf_test\\";
+		char tname2[50] = "E:\\dcf_test\\";
 		char s[10];
 		char s1[10] = "1.txt";
 		char s2[10] = "2.txt";
@@ -893,7 +1003,7 @@ int main()
 			{
 				la = lai;
 				be = bei;
-				printf("%f %f\n", r2d(la), r2d(be));
+				printf("%f %f %f\n", a, r2d(la), r2d(be));
 				in = 0;
 				temp = 1e26;
 				chi2 = 0;
