@@ -38,7 +38,7 @@ double DCF(double** arr1, double** arr2, int na1, int na2, double dt, double dta
 
 double timedelay_DCF(double** arr1, double** arr2, int n1, int n2, double tsyn)
 {
-	int ss = (int)(((arr2[n2 - 1][0] - arr1[0][0]) - (arr2[0][0] - arr1[n1 - 1][0])) / (0.01 * tsyn) + 1);
+	/*int ss = (int)(((arr2[n2 - 1][0] - arr1[0][0]) - (arr2[0][0] - arr1[n1 - 1][0])) / (0.01 * tsyn) + 1);
 	double** s = (double**)malloc( ss * sizeof(double));
 	for (int i = 0; i < ss; i++)
 	{
@@ -68,8 +68,19 @@ double timedelay_DCF(double** arr1, double** arr2, int n1, int n2, double tsyn)
 		free(sf[i]);
 	}
 	free(s);
-	free(sf);
-	if (temp > 0.98 && (min(arr1[n1 - 1][0], arr2[n2 - 1][0] - T) - max(arr1[0][0], arr2[0][0] - T)) * 24 > 1)
+	free(sf);*/
+	double T = 0;
+	double temp = -1e26;
+	for (double t = arr2[0][0] - arr1[n1 - 1][0]; t <= arr2[n2 - 1][0] - arr1[0][0]; t = t + 0.01 * tsyn)
+	{
+		double dcf_r= DCF(arr1, arr2, n1, n2, t, 0.01 * tsyn);
+		if (temp < dcf_r)
+		{
+			temp = dcf_r;
+			T = t;
+		}
+	}
+	if (temp > 0.98 && (min(arr1[n1 - 1][0], arr2[n2 - 1][0] - T) - max(arr1[0][0], arr2[0][0] - T)) * 24 > 4)
 	{
 		return T;
 	}

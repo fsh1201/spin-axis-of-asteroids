@@ -6,21 +6,22 @@
 #include "dfdcf.h"
 #include "lagrange.h"
 
-#define tmin 0.29	//周期起始值
-#define tmax 0.31	//周期结束值
+#define tmin 0.299	//周期起始值
+#define tmax 0.301	//周期结束值
 #define tstep 0.000001	//周期步长
 #define dp 1e-5
 #define dlp 1e-3
 #define dbp 1e-3
-#define alpha 0.01	//学习率
-#define stopc 1	//0：停止条件为误差，1：停止条件为迭代次数
-#define stopin 2000	//最大迭代次数
+#define alpha 0.1	//学习率
+#define stopc 0	//0：停止条件为误差，1：停止条件为迭代次数
+#define stopin 200	//最大迭代次数
 //#define La_inter	//拉格朗日插值
 #define Li_inter	//线性插值
 //#define eq_out	//输出方程
 #define dcf_test	//输出相关的曲线
 #define Newton_iter	//牛顿法迭代求解
 //#define Tra	//遍历求解
+//#define Tra_int	//师兄方法遍历
 #define T_asteroid 1826	//小行星公转周期
 //#define Fi	//先遍历i
 #define Fj	//先遍历曲线，判断i
@@ -28,9 +29,8 @@
 #define T_JUR	//Jurkevich
 //#define T_JUR_DCF	//Jurkevich_DCF
 //#define lcf_out	//光变曲线输出
-#define lcf_out_jur_dcf	//光变曲线输出
-//#define spin_axis	//求自转轴
-//#define lpc_out
+//#define lcf_out_jur_dcf	//光变曲线输出
+#define spin_axis	//求自转轴
 
 /*jurkevich方法寻找周期*/
 double jur(double** arr, int na)
@@ -190,7 +190,7 @@ double jur(double** arr, int na)
 			change++;
 		}
 	}
-	printf("%d\n",change);
+	printf("%d\n", change);
 	if (change > 5)
 	{
 		T = T / 2;
@@ -332,7 +332,7 @@ double BB(double* r)
 	return b;
 }
 
-double f(double a, double Ti, double Tj, double Psid, double *rs1, double *re1,double *rs2,double*re2, double lp, double bp,double Psyn)
+double f(double a, double Ti, double Tj, double Psid, double* rs1, double* re1, double* rs2, double* re2, double lp, double bp, double Psyn)
 {
 	double dn = dN(Ti, Tj, Psyn);
 	double* r1, * r2;
@@ -369,7 +369,7 @@ double dLdlp(double* r, double lp, double bp)
 	return (r[2] * sin(bp) - sin(BB(r))) * cos(LL(r)) / (cos(bp) * cos(BB(r))) - sin(LL(r)) * sin(LL(r)) * sin(bp);
 }
 
-double dLdbp(double *r, double lp, double bp)
+double dLdbp(double* r, double lp, double bp)
 {
 	return -sin(LL(r)) * tan(BB(r));
 }
@@ -379,20 +379,20 @@ double dfdPsid(double Ti, double Tj, double Psid)
 	return (Ti - Tj) / pow(Psid, 2);
 }
 
-double dfdlp(double a, double* rs1, double *re1, double *rs2,double *re2,double lp, double bp)
+double dfdlp(double a, double* rs1, double* re1, double* rs2, double* re2, double lp, double bp)
 {
 	double* ri, * rj;
 	ri = rc(re1, rs1, lp, bp);
 	rj = rc(re2, rs2, lp, bp);
-	double ddd= a / (2 * pi) * (dLdlp(ri, lp, bp) - dLdlp(rj, lp, bp));
+	double ddd = a / (2 * pi) * (dLdlp(ri, lp, bp) - dLdlp(rj, lp, bp));
 
 	free(ri);
 	free(rj);
-	
+
 	return ddd;
 }
 
-double dfdbp(double a, double* rs1, double* re1, double* rs2, double* re2,double lp,double bp)
+double dfdbp(double a, double* rs1, double* re1, double* rs2, double* re2, double lp, double bp)
 {
 	double* ri, * rj;
 	ri = rc(re1, rs1, lp, bp);
@@ -409,7 +409,7 @@ double dfdbp(double a, double* rs1, double* re1, double* rs2, double* re2,double
 
 int main()
 {
-	char *olcname;
+	char* olcname;
 	olcname = (char*)malloc(100 * sizeof(char));
 	if (olcname == NULL)
 		exit(20);
@@ -552,10 +552,10 @@ int main()
 	{
 		for (int j = 0; j < nlp[i][0]; j++)
 		{
-			fprintf(lcf, "%f %f\n", lp[i][j][0] - (lp[i][0][0] - mod(lp[i][0][0], Tsyn)), lp[i][j][1]);
+			fprintf(lcf, "%f %f\n", lp[i][j][0] - (lp[i][0][0] - mod(lp[i][0][0], Tsyn_JUR)), lp[i][j][1]);
 		}
 	}
-	/*FILE* lcf1;
+	FILE* lcf1;
 	lcf1 = fopen("E:\\lcf_JD.txt", "w");
 	for (int i = 0; i < nlc; i++)
 	{
@@ -563,52 +563,8 @@ int main()
 		{
 			fprintf(lcf1, "%f %f\n", lp[i][j][0] - (lp[i][0][0] - mod(lp[i][0][0], Tsyn_J_D)), lp[i][j][1]);
 		}
-	}*/
+	}
 #endif // lcf_out_jur_dcf
-
-
-#ifdef lpc_out
-	char* lcs_out = (char*)malloc(100 * sizeof(char));
-	printf("输入计算的光变曲线路径：");
-	scanf("%s", lcs_out);
-	FILE* olcs = fopen(lcs_out, "r");
-	double* inlc = (double*)malloc(npc * sizeof(double));
-	for (int i = 0; i < npc; i++)
-	{
-		(void)fscanf(olcs, "%lf", &inlc[i]);
-	}
-	FILE* f1, * f2;
-	int on = 0;
-	double LcChi2 = 0;
-	for (int j = 0; j < nlc; j++)
-	{
-		char tname1[50] = "E:\\";
-		char tname2[50] = "E:\\";
-		char s[10];
-		char s1[10] = "1.txt";
-		char s2[10] = "2.txt";
-		itoa(j, s, 10);
-		strcat(tname1, s);
-		strcat(tname1, s1);
-		strcat(tname2, s);
-		strcat(tname2, s2);
-
-		f1 = fopen(tname1, "w");
-		f2 = fopen(tname2, "w");
-
-		for (int i = 0; i < nlp[j][0]; i++)
-		{
-			fprintf(f1, "%f %f\n", lp[j][i][0], lp[j][i][1]);
-			fprintf(f2, "%f %f\n", lp[j][i][0], inlc[on]);
-			LcChi2 += pow(inlc[on] - lp[j][i][1], 2);
-			inlc++;
-		}
-
-		fclose(f1);
-		fclose(f2);
-	}
-	printf("%f\n", LcChi2);
-#endif // lpc_out
 
 
 
@@ -643,11 +599,11 @@ int main()
 	double* par;	//拉格朗日插值结果
 	for (int i = 0; i < nlc - 1; i++)
 	{
-		if (delt[i] < 0.02 && lp[i][nlp[i][0]-1][0]-lp[i][0][0] > 0.1)	//观测间隔在15分钟内
+		if (delt[i] < 0.02 && lp[i][nlp[i][0] - 1][0] - lp[i][0][0] > 0.1)	//观测间隔在15分钟内
 		{
 			for (int j = i + 1; j < nlc; j++)
 			{
-				if (delt[j] < 0.02 && lp[j][nlp[j][0] - 1][0] - lp[j][0][0] > 0.1 && lp[i][0][0]<lp[j][0][0] && lp[j][0][0]-lp[i][0][0]<180)	//观测间隔在15分钟内且时间延迟最大值为180天
+				if (delt[j] < 0.02 && lp[j][nlp[j][0] - 1][0] - lp[j][0][0] > 0.1 && lp[i][0][0] < lp[j][0][0] && lp[j][0][0] - lp[i][0][0] < 180)	//观测间隔在15分钟内且时间延迟最大值为180天
 				{
 					double ddcf = timedelay_DCF(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn);	//时间延迟
 					if (ddcf != 0)
@@ -823,8 +779,8 @@ int main()
 	FILE* f1, * f2;
 	for (int j = 0; j < nxy; j++)
 	{
-		char tname1[50] = "E:\\";
-		char tname2[50] = "E:\\";
+		char tname1[50] = "E:\\dcf_test\\";
+		char tname2[50] = "E:\\dcf_test\\";
 		char s[10];
 		char s1[10] = "1.txt";
 		char s2[10] = "2.txt";
@@ -847,7 +803,7 @@ int main()
 		}
 		fclose(f1);
 		fclose(f2);
-	}	
+	}
 #endif	//dcftest
 
 
@@ -864,125 +820,245 @@ int main()
 	double psid = Tsyn;
 	double X[3] = { 0 };
 	for (double a = -1.0; a < 2.0; a = a + 2.0)
+
 	{
+
 		psid = Tsyn;
+
 		temp = 1e26;
+
 		for (double l = 0; l <= 2 * pi; l = l + 0.1)
+
 		{
+
 			for (double b = -pi / 2; b < pi / 2; b = b + 0.1)
+
 			{
+
 				chi2 = 0;
+
 				for (int i = 0; i < nxy; i++)
+
 				{
+
 					chi2 = chi2 + pow(f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], l, b, psid), 2);
+
 				}
+
 				//printf("%f\n", chi2);
+
 				if (temp > chi2)
+
 				{
+
 					temp = chi2;
+
 					la = l;
+
 					be = b;
+
 				}
+
 			}
+
 		}
+
 		printf("%f %f\n", la, be);
 
+
+
 		for (double lai = 0; lai < 2 * pi; lai += pi / 3)
+
 		{
+
 			for (double bei = -pi / 2; bei < pi / 2; bei += pi / 6)
+
 			{
+
 				la = lai;
+
 				be = bei;
+
 				printf("%f %f\n", r2d(la), r2d(be));
+
 				in = 0;
+
 				temp = 1e26;
+
 				chi2 = 0;
+
 				for (int i = 0; i < 3; i++)
+
 				{
+
 					dx[i] = 0;
+
 				}
+
 				do
+
 				{
+
 					in++;
+
 					double** F, ** J, ** Jt, ** JtJ, ** JtF, ** JtJin, ** epsi;
+
 					F = (double**)malloc(nxy * sizeof(double));
+
 					J = (double**)malloc(nxy * sizeof(double));
+
 					for (int i = 0; i < nxy; i++)
+
 					{
+
 						F[i] = (double*)malloc(sizeof(double));
+
 						J[i] = (double*)malloc(3 * sizeof(double));
+
 					}
+
 					psid = psid - alpha * dx[0];
+
 					la = la - alpha * dx[1];
+
 					be = be - alpha * dx[2];
+
 					chi2 = 0;
+
 					for (int i = 0; i < nxy; i++)
+
 					{
+
 						F[i][0] = f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be, Tsyn);
+
 						chi2 = chi2 + pow(F[i][0], 2);
+
 						J[i][0] = dfdPsid(tsyn[i][0], tsyn[i][1], psid);
+
 						J[i][1] = dfdlp(a, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be);
+
 						J[i][2] = dfdbp(a, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be);
+
 					}
+
 					Jt = TA(J, nxy, 3);
+
 					JtJ = AB(Jt, 3, nxy, J, nxy, 3);
+
 					JtJin = inv(JtJ, 3);
+
 					JtF = AB(Jt, 3, nxy, F, nxy, 1);
+
 					epsi = AB(JtJin, 3, 3, JtF, 3, 1);
+
 					for (int i = 0; i < 3; i++)
+
 					{
+
 						dx[i] = epsi[i][0];
+
 					}
+
 					if (temp > chi2)
+
 					{
+
 						temp = chi2;
+
 						X[0] = psid;
+
 						X[1] = la;
+
 						X[2] = be;
+
 					}
+
 					for (int i = 0; i < nxy; i++)
+
 					{
+
 						free(F[i]);
+
 						free(J[i]);
+
 					}
+
 					free(F);
+
 					free(J);
+
 					for (int i = 0; i < 3; i++)
+
 					{
+
 						free(Jt[i]);
+
 						free(JtJ[i]);
+
 						free(JtF[i]);
+
 						free(epsi[i]);
+
 						free(JtJin[i]);
+
 					}
+
 					free(Jt);
+
 					free(JtJ);
+
 					free(JtF);
+
 					free(epsi);
+
 					free(JtJin);
+
 					//printf("%15.10f %15.10f %15.10f\n", dx[0], dx[1], dx[2]);
+
 					//printf("%f %f %f\n", psid * 24, r2d(la), r2d(be));
+
 					fsh = 1;
+
 					if (stopc == 0)
+
 					{
+
 						if (Abs(dx[0]) < dp && Abs(dx[1]) < dlp && Abs(dx[2]) < dbp)
+
 						{
+
 							fsh = 0;
+
 						}
+
 					}
+
 					if (stopc == 1)
+
 					{
+
 						if (in > stopin)
+
 							fsh = 0;
+
 					}
+
 					if (in > 2000)
+
 						break;
+
 				} while (fsh);
+
 				printf("x残差小：%f %f %f %f\n", X[0] * 24, r2d(fmod(X[1], 2 * pi)), r2d(asin(sin(X[2]))), temp);
+
 				printf("x迭代后：%f %f %f %f\n", psid * 24, r2d(fmod(la, 2 * pi)), r2d(asin(sin(be))), chi2);
+
 				printf("%d\n\n", in);
+
 			}
+
 		}
+
 	}
 #endif //Newton_iter
 
@@ -1023,7 +1099,44 @@ int main()
 	}
 #endif // Tra
 
-	
+
+#ifdef Tra_int
+	double temp = 1e26;
+	double X[3] = { 0 };
+	double chi2 = 0;
+	double* r1, * r2;
+	double L1 = 0, L2 = 0;
+	for (double psid = Tsyn - 0.001; psid < Tsyn + 0.001; psid = psid + tstep * 10)
+	{
+		for (double la = 0; la < 2 * pi; la = la + 0.05)
+		{
+			for (double be = -pi / 2; be < pi / 2; be = be + 0.05)
+			{
+				chi2 = 0;
+				for (int i = 0; i < nxy; i++)
+				{
+					r1 = rc(re[i][0], rs[i][0], la, be);
+					r2 = rc(re[i][1], rs[i][1], la, be);
+					L1 = LL(r1);
+					L2 = LL(r2);
+					chi2 += pow((tsyn[i][0] - tsyn[i][1]) / psid - (L1 - L2) / (2 * pi) - (double)((int)((tsyn[i][0] - tsyn[i][1]) / psid - (L1 - L2)+0.5)), 2);
+					free(r1);
+					free(r2);
+				}
+				if (temp > chi2)
+				{
+					temp = chi2;
+					X[0] = psid * 24;
+					X[1] = r2d(la);
+					X[2] = r2d(be);
+				}
+			}
+		}
+	}
+	printf("%f %f %f\n", X[0], X[1], X[2]);
+#endif // Tra_int
+
+
 	for (int i = 0; i < nlc; i++)
 	{
 		for (int j = 0; j < nlp[i][0]; j++)

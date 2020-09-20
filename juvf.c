@@ -161,6 +161,8 @@ double** TA(double** a, int ma, int na)
 /*ШЁгр*/
 double mod(double a, double b)
 {
+	if (a < 0)
+		a = a - (double)(((int)(a / b)) * b);
 	while (a<0)
 	{
 		a = a + b;
@@ -252,10 +254,10 @@ double* nor(double* xulx, int na)
 	if (s == NULL)
 		exit(20);
 	double a;
-	a = dotpro(xulx, xulx, na);
+	a = sqrt(dotpro(xulx, xulx, na));
 	for (int i = 0; i < na; i++)
 	{
-		s[i] = xulx[i] / sqrt(a);
+		s[i] = xulx[i] / a;
 	}
 	return s;
 }
