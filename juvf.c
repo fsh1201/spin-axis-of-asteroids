@@ -105,6 +105,11 @@ double** inv(double** a, int n)
 			ai[i][j] = as[i][j] / det;
 		}
 	}
+	for (int i = 0; i < n; i++)
+	{
+		free(as[i]);
+	}
+	free(as);
 	return ai;
 }
 

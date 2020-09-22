@@ -3,7 +3,6 @@
 #include <math.h>
 #include "juvf.h"
 #include "dcf.h"
-#include "dfdcf.h"
 #include "lagrange.h"
 
 #define tmin 0.299	//周期起始值
@@ -14,10 +13,12 @@
 #define dbp 1e-3
 #define alpha 0.1	//学习率
 #define stopc 0	//0：停止条件为误差，1：停止条件为迭代次数
-#define stopin 200	//最大迭代次数
+#define stopin 200	//停止条件迭代次数
+#define MAX_ITER 2000	//最大迭代次数
 //#define La_inter	//拉格朗日插值
 #define Li_inter	//线性插值
-//#define eq_out	//输出方程
+#define eq_out	//输出方程
+//#define print_EQ	//打印方程
 #define dcf_test	//输出相关的曲线
 #define Newton_iter	//牛顿法迭代求解
 //#define Tra	//遍历求解
@@ -522,7 +523,7 @@ int main()
 
 #ifdef T_JUR
 	double Tsyn = jur(lpc, npc);	//会合周期
-	printf("%f\n", Tsyn);
+	printf("会合周期：%f天\n", Tsyn);
 #endif	//T_JUR
 
 
@@ -603,130 +604,131 @@ int main()
 		{
 			for (int j = i + 1; j < nlc; j++)
 			{
-				if (delt[j] < 0.02 && lp[j][nlp[j][0] - 1][0] - lp[j][0][0] > 0.1 && lp[i][0][0] < lp[j][0][0] && lp[j][0][0] - lp[i][0][0] < 180)	//观测间隔在15分钟内且时间延迟最大值为180天
+				flag = 0;
+				for (int xyi = 0; xyi < nxy; xyi++)
+				{
+					for (int xyj = 0; xyj < nxy; xyj++)
+					{
+						if ((xy[xyi][0] == xy[xyj][0] && xy[xyi][1] == i && xy[xyj][1] == j) || (xy[xyi][1] == xy[xyj][1] && xy[xyi][0] == i && xy[xyj][0] == j))	//线性相关
+						{
+							flag = 1;
+						}
+					}
+				}
+				if (!flag && delt[j] < 0.02 && lp[j][nlp[j][0] - 1][0] - lp[j][0][0] > 0.1 && lp[i][0][0] < lp[j][0][0] && lp[j][0][0] - lp[i][0][0] < 180)	//观测间隔在15分钟内且时间延迟最大值为180天
 				{
 					double ddcf = timedelay_DCF(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn);	//时间延迟
 					if (ddcf != 0)
 					{
-						flag = 0;
-						for (int xyi = 0; xyi < nxy; xyi++)
-						{
-							for (int xyj = 0; xyj < nxy; xyj++)
-							{
-								if (xy[xyi][0] == xy[xyj][0] && xy[xyi][1] == i && xy[xyj][1] == j)	//线性相关
-								{
-									flag = 1;
-								}
-							}
-						}
-						if (!flag)	//线性无关
-						{
-							xy[nxy][0] = i;
-							xy[nxy][1] = j;
-							lag[nxy] = ddcf;
-							tsyn[nxy][0] = (min(lp[i][nlp[i][0] - 1][0], lp[j][nlp[j][0] - 1][0] - ddcf) - max(lp[i][0][0], lp[j][0][0] - ddcf)) / 2 + max(lp[i][0][0], lp[j][0][0] - ddcf);
-							tsyn[nxy][1] = tsyn[nxy][0] + ddcf;
+						xy[nxy][0] = i;
+						xy[nxy][1] = j;
+						lag[nxy] = ddcf;
+						tsyn[nxy][0] = (min(lp[i][nlp[i][0] - 1][0], lp[j][nlp[j][0] - 1][0] - ddcf) - max(lp[i][0][0], lp[j][0][0] - ddcf)) / 2 + max(lp[i][0][0], lp[j][0][0] - ddcf);
+						tsyn[nxy][1] = tsyn[nxy][0] + ddcf;
 
 
 #ifdef La_inter
-							for (int k = 0; k < nlp[i][0] - 1; k++)
+						for (int k = 0; k < nlp[i][0] - 1; k++)
+						{
+							if (lp[i][k][0] <= tsyn[nxy][0] && lp[i][k + 1][0] >= tsyn[nxy][0])
 							{
-								if (lp[i][k][0] <= tsyn[nxy][0] && lp[i][k + 1][0] >= tsyn[nxy][0])
+								par = Lagrange(lp[i] + k - 2, 4, 8, tsyn[nxy][0]);
+								for (int ki = 0; ki < 3; ki++)
 								{
-									par = Lagrange(lp[i] + k - 2, 4, 8, tsyn[nxy][0]);
-									for (int ki = 0; ki < 3; ki++)
-									{
-										rs[nxy][0][ki] = par[ki + 2];
-										re[nxy][0][ki] = par[ki + 5];
-									}
-									free(par);
-									break;
+									rs[nxy][0][ki] = par[ki + 2];
+									re[nxy][0][ki] = par[ki + 5];
 								}
+								free(par);
+								break;
 							}
+						}
 #endif // La_inter
 
 
-							/*par = Lagrange(lp[i], nlp[i][0], 8, tsyn[nxy][0]);
-							for (int k = 0; k < 3; k++)
-							{
-								rs[nxy][0][k] = par[k + 2];
-								re[nxy][0][k] = par[k + 5];
-							}
-							free(par);*/
+						/*par = Lagrange(lp[i], nlp[i][0], 8, tsyn[nxy][0]);
+						for (int k = 0; k < 3; k++)
+						{
+							rs[nxy][0][k] = par[k + 2];
+							re[nxy][0][k] = par[k + 5];
+						}
+						free(par);*/
 
 
 #ifdef Li_inter
-							for (int k = 0; k < nlp[i][0] - 1; k++)
+						for (int k = 0; k < nlp[i][0] - 1; k++)
+						{
+							if (lp[i][k][0] <= tsyn[nxy][0] && lp[i][k + 1][0] >= tsyn[nxy][0])
 							{
-								if (lp[i][k][0] <= tsyn[nxy][0] && lp[i][k + 1][0] >= tsyn[nxy][0])
+								for (int ki = 0; ki < 3; ki++)
 								{
-									for (int ki = 0; ki < 3; ki++)
-									{
-										rs[nxy][0][ki] = (lp[i][k + 1][ki + 2] - lp[i][k][ki + 2]) / (lp[i][k + 1][0] - lp[i][k][0]) * (tsyn[nxy][0] - lp[i][k][0]) + lp[i][k][ki + 2];
-										re[nxy][0][ki] = (lp[i][k + 1][ki + 5] - lp[i][k][ki + 5]) / (lp[i][k + 1][0] - lp[i][k][0]) * (tsyn[nxy][0] - lp[i][k][0]) + lp[i][k][ki + 5];
-									}
-									break;
+									rs[nxy][0][ki] = (lp[i][k + 1][ki + 2] - lp[i][k][ki + 2]) / (lp[i][k + 1][0] - lp[i][k][0]) * (tsyn[nxy][0] - lp[i][k][0]) + lp[i][k][ki + 2];
+									re[nxy][0][ki] = (lp[i][k + 1][ki + 5] - lp[i][k][ki + 5]) / (lp[i][k + 1][0] - lp[i][k][0]) * (tsyn[nxy][0] - lp[i][k][0]) + lp[i][k][ki + 5];
 								}
+								break;
 							}
+						}
 #endif // Li_inter
 
 
 #ifdef La_inter
-							for (int k = 0; k < nlp[j][0] - 1; k++)
+						for (int k = 0; k < nlp[j][0] - 1; k++)
+						{
+							if (lp[j][k][0] <= tsyn[nxy][1] && lp[j][k + 1][0] >= tsyn[nxy][1])
 							{
-								if (lp[j][k][0] <= tsyn[nxy][1] && lp[j][k + 1][0] >= tsyn[nxy][1])
+								par = Lagrange(lp[j] + k - 2, 4, 8, tsyn[nxy][1]);
+								for (int ki = 0; ki < 3; ki++)
 								{
-									par = Lagrange(lp[j] + k - 2, 4, 8, tsyn[nxy][1]);
-									for (int ki = 0; ki < 3; ki++)
-									{
-										rs[nxy][1][ki] = par[ki + 2];
-										re[nxy][1][ki] = par[ki + 5];
-									}
-									free(par);
-									break;
+									rs[nxy][1][ki] = par[ki + 2];
+									re[nxy][1][ki] = par[ki + 5];
 								}
+								free(par);
+								break;
 							}
+						}
 #endif // La_inter
 
 
-							/*par = Lagrange(lp[j], nlp[j][0], 8, tsyn[nxy][1]);
-							for (int k = 0; k < 3; k++)
-							{
-								rs[nxy][1][k] = par[k + 2];
-								re[nxy][1][k] = par[k + 5];
-							}
-							free(par);*/
+						/*par = Lagrange(lp[j], nlp[j][0], 8, tsyn[nxy][1]);
+						for (int k = 0; k < 3; k++)
+						{
+							rs[nxy][1][k] = par[k + 2];
+							re[nxy][1][k] = par[k + 5];
+						}
+						free(par);*/
 
 
 #ifdef Li_inter
-							for (int k = 0; k < nlp[j][0] - 1; k++)
+						for (int k = 0; k < nlp[j][0] - 1; k++)
+						{
+							if (lp[j][k][0] <= tsyn[nxy][1] && lp[j][k + 1][0] >= tsyn[nxy][1])
 							{
-								if (lp[j][k][0] <= tsyn[nxy][1] && lp[j][k + 1][0] >= tsyn[nxy][1])
+								for (int ki = 0; ki < 3; ki++)
 								{
-									for (int ki = 0; ki < 3; ki++)
-									{
-										rs[nxy][1][ki] = (lp[j][k + 1][ki + 2] - lp[j][k][ki + 2]) / (lp[j][k + 1][0] - lp[j][k][0]) * (tsyn[nxy][1] - lp[j][k][0]) + lp[j][k][ki + 2];
-										re[nxy][1][ki] = (lp[j][k + 1][ki + 5] - lp[j][k][ki + 5]) / (lp[j][k + 1][0] - lp[j][k][0]) * (tsyn[nxy][1] - lp[j][k][0]) + lp[j][k][ki + 5];
-									}
-									break;
+									rs[nxy][1][ki] = (lp[j][k + 1][ki + 2] - lp[j][k][ki + 2]) / (lp[j][k + 1][0] - lp[j][k][0]) * (tsyn[nxy][1] - lp[j][k][0]) + lp[j][k][ki + 2];
+									re[nxy][1][ki] = (lp[j][k + 1][ki + 5] - lp[j][k][ki + 5]) / (lp[j][k + 1][0] - lp[j][k][0]) * (tsyn[nxy][1] - lp[j][k][0]) + lp[j][k][ki + 5];
 								}
+								break;
 							}
+						}
 #endif // Li_inter
 
 
-							nxy++;
-						}
+						nxy++;
+
 					}
 				}
 			}
 		}
 	}
-	printf("%d\n", nxy);
+	printf("方程数量：%d\n", nxy);
 	if (nxy < 5)
 	{
 		printf("未找到足够数量的方程。");
 		exit(20);
 	}
+
+
+#ifdef print_EQ
 	for (int i = 0; i < nxy; i++)
 	{
 		printf("%d %d %f %f %f\n", xy[i][0], xy[i][1], lag[i], tsyn[i][0], tsyn[i][1]);
@@ -743,6 +745,7 @@ int main()
 			printf("\n");
 		}
 	}
+#endif	//print_EQ
 
 
 #ifdef eq_out
@@ -820,245 +823,106 @@ int main()
 	double psid = Tsyn;
 	double X[3] = { 0 };
 	for (double a = -1.0; a < 2.0; a = a + 2.0)
-
 	{
 
-		psid = Tsyn;
-
-		temp = 1e26;
-
-		for (double l = 0; l <= 2 * pi; l = l + 0.1)
-
-		{
-
-			for (double b = -pi / 2; b < pi / 2; b = b + 0.1)
-
-			{
-
-				chi2 = 0;
-
-				for (int i = 0; i < nxy; i++)
-
-				{
-
-					chi2 = chi2 + pow(f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], l, b, psid), 2);
-
-				}
-
-				//printf("%f\n", chi2);
-
-				if (temp > chi2)
-
-				{
-
-					temp = chi2;
-
-					la = l;
-
-					be = b;
-
-				}
-
-			}
-
-		}
-
-		printf("%f %f\n", la, be);
-
-
-
+		//double** F, ** J, ** Jt, ** JtJ, ** JtF, ** JtJin, ** epsi;
 		for (double lai = 0; lai < 2 * pi; lai += pi / 3)
-
 		{
-
 			for (double bei = -pi / 2; bei < pi / 2; bei += pi / 6)
-
 			{
-
 				la = lai;
-
 				be = bei;
-
+				psid = Tsyn;
 				printf("%f %f\n", r2d(la), r2d(be));
-
 				in = 0;
-
 				temp = 1e26;
-
 				chi2 = 0;
-
 				for (int i = 0; i < 3; i++)
-
 				{
-
 					dx[i] = 0;
-
 				}
-
 				do
-
 				{
-
 					in++;
-
 					double** F, ** J, ** Jt, ** JtJ, ** JtF, ** JtJin, ** epsi;
-
 					F = (double**)malloc(nxy * sizeof(double));
-
 					J = (double**)malloc(nxy * sizeof(double));
-
 					for (int i = 0; i < nxy; i++)
-
 					{
-
 						F[i] = (double*)malloc(sizeof(double));
-
 						J[i] = (double*)malloc(3 * sizeof(double));
-
 					}
-
 					psid = psid - alpha * dx[0];
-
 					la = la - alpha * dx[1];
-
 					be = be - alpha * dx[2];
-
 					chi2 = 0;
-
 					for (int i = 0; i < nxy; i++)
-
 					{
-
 						F[i][0] = f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be, Tsyn);
-
 						chi2 = chi2 + pow(F[i][0], 2);
-
 						J[i][0] = dfdPsid(tsyn[i][0], tsyn[i][1], psid);
-
 						J[i][1] = dfdlp(a, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be);
-
 						J[i][2] = dfdbp(a, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be);
-
 					}
-
 					Jt = TA(J, nxy, 3);
-
 					JtJ = AB(Jt, 3, nxy, J, nxy, 3);
-
 					JtJin = inv(JtJ, 3);
-
 					JtF = AB(Jt, 3, nxy, F, nxy, 1);
-
 					epsi = AB(JtJin, 3, 3, JtF, 3, 1);
-
 					for (int i = 0; i < 3; i++)
-
 					{
-
 						dx[i] = epsi[i][0];
-
 					}
-
 					if (temp > chi2)
-
 					{
-
 						temp = chi2;
-
 						X[0] = psid;
-
 						X[1] = la;
-
 						X[2] = be;
-
 					}
-
 					for (int i = 0; i < nxy; i++)
-
 					{
-
 						free(F[i]);
-
 						free(J[i]);
-
 					}
-
 					free(F);
-
 					free(J);
-
 					for (int i = 0; i < 3; i++)
-
 					{
-
 						free(Jt[i]);
-
 						free(JtJ[i]);
-
 						free(JtF[i]);
-
 						free(epsi[i]);
-
 						free(JtJin[i]);
-
 					}
-
 					free(Jt);
-
 					free(JtJ);
-
 					free(JtF);
-
 					free(epsi);
-
 					free(JtJin);
-
 					//printf("%15.10f %15.10f %15.10f\n", dx[0], dx[1], dx[2]);
-
 					//printf("%f %f %f\n", psid * 24, r2d(la), r2d(be));
-
 					fsh = 1;
-
 					if (stopc == 0)
-
 					{
-
 						if (Abs(dx[0]) < dp && Abs(dx[1]) < dlp && Abs(dx[2]) < dbp)
-
 						{
-
 							fsh = 0;
-
 						}
-
 					}
-
 					if (stopc == 1)
-
 					{
-
 						if (in > stopin)
-
 							fsh = 0;
-
 					}
-
-					if (in > 2000)
-
+					if (in > MAX_ITER)
 						break;
-
 				} while (fsh);
-
-				printf("x残差小：%f %f %f %f\n", X[0] * 24, r2d(fmod(X[1], 2 * pi)), r2d(asin(sin(X[2]))), temp);
-
-				printf("x迭代后：%f %f %f %f\n", psid * 24, r2d(fmod(la, 2 * pi)), r2d(asin(sin(be))), chi2);
-
+				printf("x残差小：%d %f %f %f %f\n", (int)a, X[0] * 24, r2d(fmod(X[1], 2 * pi)), r2d(asin(sin(X[2]))), temp);
+				printf("x迭代后：%d %f %f %f %f\n", (int)a, psid * 24, r2d(fmod(la, 2 * pi)), r2d(asin(sin(be))), chi2);
 				printf("%d\n\n", in);
-
 			}
-
 		}
-
 	}
 #endif //Newton_iter
 
@@ -1119,7 +983,7 @@ int main()
 					r2 = rc(re[i][1], rs[i][1], la, be);
 					L1 = LL(r1);
 					L2 = LL(r2);
-					chi2 += pow((tsyn[i][0] - tsyn[i][1]) / psid - (L1 - L2) / (2 * pi) - (double)((int)((tsyn[i][0] - tsyn[i][1]) / psid - (L1 - L2)+0.5)), 2);
+					chi2 += pow((tsyn[i][0] - tsyn[i][1]) / psid - (L1 - L2) / (2 * pi) - (double)((int)((tsyn[i][0] - tsyn[i][1]) / psid - (L1 - L2) / (2 * pi) + 0.5)), 2);
 					free(r1);
 					free(r2);
 				}
