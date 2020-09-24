@@ -14,12 +14,12 @@
 #define alpha 0.1	//学习率
 #define stopc 0	//0：停止条件为误差，1：停止条件为迭代次数
 #define stopin 200	//停止条件迭代次数
-#define MAX_ITER 2000	//最大迭代次数
+#define MAX_ITER 300	//最大迭代次数
 //#define La_inter	//拉格朗日插值
 #define Li_inter	//线性插值
-#define eq_out	//输出方程
+//#define eq_out	//输出方程
 //#define print_EQ	//打印方程
-#define dcf_test	//输出相关的曲线
+//#define dcf_test	//输出相关的曲线
 #define Newton_iter	//牛顿法迭代求解
 //#define Tra	//遍历求解
 //#define Tra_int	//师兄方法遍历
@@ -442,6 +442,9 @@ int main()
 
 	int* qs = (int*)malloc(nlc * sizeof(int));	//去重的数量
 
+	double jdmax = -1e26;	//光变曲线时间最大值
+	double jdmin = 1e26;	//光变曲线时间最小值
+
 	for (int i = 0; i < nlc; i++)
 	{
 		lmax[i] = -1e9;
@@ -467,6 +470,14 @@ int main()
 			if (lmin[i] > lp[i][j][1])
 			{
 				lmin[i] = lp[i][j][1];
+			}
+			if (jdmax < lp[i][j][0])
+			{
+				jdmax = lp[i][j][0];
+			}
+			if (jdmin > lp[i][j][0])
+			{
+				jdmin = lp[i][j][0];
 			}
 			np++;
 			if (j > 0)
@@ -814,6 +825,10 @@ int main()
 	/*自转轴指向初值*/
 	double chi2 = 0;
 	double temp = 1e26;
+	double Temp = 1e26;
+	double Y[3] = { 0 };
+	double A = 0;
+	double dT = 0.5 * Tsyn * Tsyn / (jdmax - jdmin) * 0.8;
 
 	int fsh = 0;
 
@@ -822,107 +837,124 @@ int main()
 	int in = 0;
 	double psid = Tsyn;
 	double X[3] = { 0 };
-	for (double a = -1.0; a < 2.0; a = a + 2.0)
+	for (double T = Tsyn - 0.0001; T < Tsyn + 0.0001; T = T + dT)
 	{
-
-		//double** F, ** J, ** Jt, ** JtJ, ** JtF, ** JtJin, ** epsi;
-		for (double lai = 0; lai < 2 * pi; lai += pi / 3)
+		Temp = 1e26;
+		for (double a = -1.0; a < 2.0; a = a + 2.0)
 		{
-			for (double bei = -pi / 2; bei < pi / 2; bei += pi / 6)
+			//double** F, ** J, ** Jt, ** JtJ, ** JtF, ** JtJin, ** epsi;
+			for (double lai = 0; lai < 2 * pi; lai += pi / 3)
 			{
-				la = lai;
-				be = bei;
-				psid = Tsyn;
-				printf("%f %f\n", r2d(la), r2d(be));
-				in = 0;
-				temp = 1e26;
-				chi2 = 0;
-				for (int i = 0; i < 3; i++)
+				for (double bei = -pi / 2; bei < pi / 2; bei += pi / 6)
 				{
-					dx[i] = 0;
-				}
-				do
-				{
-					in++;
-					double** F, ** J, ** Jt, ** JtJ, ** JtF, ** JtJin, ** epsi;
-					F = (double**)malloc(nxy * sizeof(double));
-					J = (double**)malloc(nxy * sizeof(double));
-					for (int i = 0; i < nxy; i++)
-					{
-						F[i] = (double*)malloc(sizeof(double));
-						J[i] = (double*)malloc(3 * sizeof(double));
-					}
-					psid = psid - alpha * dx[0];
-					la = la - alpha * dx[1];
-					be = be - alpha * dx[2];
+					la = lai;
+					be = bei;
+					psid = T;
+					//printf("%f %f\n", r2d(la), r2d(be));
+					in = 0;
+					temp = 1e26;
 					chi2 = 0;
-					for (int i = 0; i < nxy; i++)
-					{
-						F[i][0] = f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be, Tsyn);
-						chi2 = chi2 + pow(F[i][0], 2);
-						J[i][0] = dfdPsid(tsyn[i][0], tsyn[i][1], psid);
-						J[i][1] = dfdlp(a, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be);
-						J[i][2] = dfdbp(a, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be);
-					}
-					Jt = TA(J, nxy, 3);
-					JtJ = AB(Jt, 3, nxy, J, nxy, 3);
-					JtJin = inv(JtJ, 3);
-					JtF = AB(Jt, 3, nxy, F, nxy, 1);
-					epsi = AB(JtJin, 3, 3, JtF, 3, 1);
 					for (int i = 0; i < 3; i++)
 					{
-						dx[i] = epsi[i][0];
+						dx[i] = 0;
 					}
-					if (temp > chi2)
+					do
 					{
-						temp = chi2;
-						X[0] = psid;
-						X[1] = la;
-						X[2] = be;
-					}
-					for (int i = 0; i < nxy; i++)
-					{
-						free(F[i]);
-						free(J[i]);
-					}
-					free(F);
-					free(J);
-					for (int i = 0; i < 3; i++)
-					{
-						free(Jt[i]);
-						free(JtJ[i]);
-						free(JtF[i]);
-						free(epsi[i]);
-						free(JtJin[i]);
-					}
-					free(Jt);
-					free(JtJ);
-					free(JtF);
-					free(epsi);
-					free(JtJin);
-					//printf("%15.10f %15.10f %15.10f\n", dx[0], dx[1], dx[2]);
-					//printf("%f %f %f\n", psid * 24, r2d(la), r2d(be));
-					fsh = 1;
-					if (stopc == 0)
-					{
-						if (Abs(dx[0]) < dp && Abs(dx[1]) < dlp && Abs(dx[2]) < dbp)
+						in++;
+						double** F, ** J, ** Jt, ** JtJ, ** JtF, ** JtJin, ** epsi;
+						F = (double**)malloc(nxy * sizeof(double));
+						J = (double**)malloc(nxy * sizeof(double));
+						for (int i = 0; i < nxy; i++)
 						{
-							fsh = 0;
+							F[i] = (double*)malloc(sizeof(double));
+							J[i] = (double*)malloc(3 * sizeof(double));
 						}
-					}
-					if (stopc == 1)
+						psid = psid - alpha * dx[0];
+						la = la - alpha * dx[1];
+						be = be - alpha * dx[2];
+						chi2 = 0;
+						for (int i = 0; i < nxy; i++)
+						{
+							F[i][0] = f(a, tsyn[i][0], tsyn[i][1], psid, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be, Tsyn);
+							chi2 = chi2 + pow(F[i][0], 2);
+							J[i][0] = dfdPsid(tsyn[i][0], tsyn[i][1], psid);
+							J[i][1] = dfdlp(a, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be);
+							J[i][2] = dfdbp(a, rs[i][0], re[i][0], rs[i][1], re[i][1], la, be);
+						}
+						Jt = TA(J, nxy, 3);
+						JtJ = AB(Jt, 3, nxy, J, nxy, 3);
+						JtJin = inv(JtJ, 3);
+						JtF = AB(Jt, 3, nxy, F, nxy, 1);
+						epsi = AB(JtJin, 3, 3, JtF, 3, 1);
+						for (int i = 0; i < 3; i++)
+						{
+							dx[i] = epsi[i][0];
+						}
+						if (temp > chi2)
+						{
+							temp = chi2;
+							X[0] = psid;
+							X[1] = la;
+							X[2] = be;
+						}
+						for (int i = 0; i < nxy; i++)
+						{
+							free(F[i]);
+							free(J[i]);
+						}
+						free(F);
+						free(J);
+						for (int i = 0; i < 3; i++)
+						{
+							free(Jt[i]);
+							free(JtJ[i]);
+							free(JtF[i]);
+							free(epsi[i]);
+							free(JtJin[i]);
+						}
+						free(Jt);
+						free(JtJ);
+						free(JtF);
+						free(epsi);
+						free(JtJin);
+						//printf("%15.10f %15.10f %15.10f\n", dx[0], dx[1], dx[2]);
+						//printf("%f %f %f\n", psid * 24, r2d(la), r2d(be));
+						fsh = 1;
+						if (stopc == 0)
+						{
+							if (Abs(dx[0]) < dp && Abs(dx[1]) < dlp && Abs(dx[2]) < dbp)
+							{
+								fsh = 0;
+							}
+						}
+						if (stopc == 1)
+						{
+							if (in > stopin)
+								fsh = 0;
+						}
+						if (in > MAX_ITER)
+							break;
+					} while (fsh);
+					//printf("x残差小：%d %f %f %f %f\n", (int)a, X[0] * 24, r2d(fmod(X[1], 2 * pi)), r2d(asin(sin(X[2]))), temp);
+					//printf("x迭代后：%d %f %f %f %f\n", (int)a, psid * 24, r2d(fmod(la, 2 * pi)), r2d(asin(sin(be))), chi2);
+					//printf("%d\n\n", in);
+					if (Temp > temp)
 					{
-						if (in > stopin)
-							fsh = 0;
+						Temp = temp;
+						Y[0] = X[0];
+						Y[1] = X[1];
+						Y[2] = X[2];
+						A = a;
 					}
-					if (in > MAX_ITER)
-						break;
-				} while (fsh);
-				printf("x残差小：%d %f %f %f %f\n", (int)a, X[0] * 24, r2d(fmod(X[1], 2 * pi)), r2d(asin(sin(X[2]))), temp);
-				printf("x迭代后：%d %f %f %f %f\n", (int)a, psid * 24, r2d(fmod(la, 2 * pi)), r2d(asin(sin(be))), chi2);
-				printf("%d\n\n", in);
+				}
 			}
 		}
+		if ((int)A == -1)
+		{
+			Y[1] += 3 * pi;
+			Y[2] = -Y[2];
+		}
+		printf("%f %f %f %f\n", Y[0] * 24, r2d(fmod(Y[1], 2 * pi)), r2d(asin(sin(Y[2]))), Temp);
 	}
 #endif //Newton_iter
 

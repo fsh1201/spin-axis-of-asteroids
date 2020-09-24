@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 
-for k in range(0,320,20):
-    plt.figure()
+for k in range(0,180,20):
+    plt.figure(k)
     for n in range(k, k+20):
         plt.subplot(4,5,n%20+1)
         b = str(n)
