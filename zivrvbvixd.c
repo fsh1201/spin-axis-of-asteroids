@@ -5,13 +5,13 @@
 #include "dcf.h"
 #include "lagrange.h"
 
-#define tmin 0.299	//周期起始值
-#define tmax 0.301	//周期结束值
+#define tmin 0.699	//周期起始值
+#define tmax 0.701	//周期结束值
 #define tstep 0.000001	//周期步长
 #define dp 1e-5
 #define dlp 1e-3
 #define dbp 1e-3
-#define alpha 0.1	//学习率
+#define alpha 1	//学习率
 #define stopc 0	//0：停止条件为误差，1：停止条件为迭代次数
 #define stopin 200	//停止条件迭代次数
 #define MAX_ITER 300	//最大迭代次数
@@ -19,7 +19,7 @@
 #define Li_inter	//线性插值
 //#define eq_out	//输出方程
 //#define print_EQ	//打印方程
-//#define dcf_test	//输出相关的曲线
+#define dcf_test	//输出相关的曲线
 #define Newton_iter	//牛顿法迭代求解
 //#define Tra	//遍历求解
 //#define Tra_int	//师兄方法遍历
@@ -32,6 +32,7 @@
 //#define lcf_out	//光变曲线输出
 //#define lcf_out_jur_dcf	//光变曲线输出
 #define spin_axis	//求自转轴
+#define MAX_T 720
 
 /*jurkevich方法寻找周期*/
 double jur(double** arr, int na)
@@ -626,9 +627,11 @@ int main()
 						}
 					}
 				}
-				if (!flag && delt[j] < 0.02 && lp[j][nlp[j][0] - 1][0] - lp[j][0][0] > 0.1 && lp[i][0][0] < lp[j][0][0] && lp[j][0][0] - lp[i][0][0] < 180)	//观测间隔在15分钟内且时间延迟最大值为180天
+				if (lp[j][0][0] - lp[i][0][0] > MAX_T)	//时间延迟大于1000天
+					break;
+				if (!flag && delt[j] < 0.02 && lp[j][nlp[j][0] - 1][0] - lp[j][0][0] > 0.1 && lp[i][0][0] < lp[j][0][0])	//观测间隔在15分钟内且时间延迟最大值为180天
 				{
-					double ddcf = timedelay_DCF(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn);	//时间延迟
+					double ddcf = timedelay_strf(lp[i], lp[j], nlp[i][0], nlp[j][0], Tsyn);	//时间延迟
 					if (ddcf != 0)
 					{
 						xy[nxy][0] = i;
@@ -837,7 +840,7 @@ int main()
 	int in = 0;
 	double psid = Tsyn;
 	double X[3] = { 0 };
-	for (double T = Tsyn - 0.0001; T < Tsyn + 0.0001; T = T + dT)
+	for (double T = Tsyn; T < Tsyn + dT; T = T + dT)
 	{
 		Temp = 1e26;
 		for (double a = -1.0; a < 2.0; a = a + 2.0)
@@ -850,7 +853,7 @@ int main()
 					la = lai;
 					be = bei;
 					psid = T;
-					//printf("%f %f\n", r2d(la), r2d(be));
+					printf("%f %f\n", r2d(la), r2d(be));
 					in = 0;
 					temp = 1e26;
 					chi2 = 0;
@@ -935,9 +938,9 @@ int main()
 						if (in > MAX_ITER)
 							break;
 					} while (fsh);
-					//printf("x残差小：%d %f %f %f %f\n", (int)a, X[0] * 24, r2d(fmod(X[1], 2 * pi)), r2d(asin(sin(X[2]))), temp);
-					//printf("x迭代后：%d %f %f %f %f\n", (int)a, psid * 24, r2d(fmod(la, 2 * pi)), r2d(asin(sin(be))), chi2);
-					//printf("%d\n\n", in);
+					printf("x残差小：%d %f %f %f %f\n", (int)a, X[0] * 24, r2d(fmod(X[1], 2 * pi)), r2d(asin(sin(X[2]))), temp);
+					printf("x迭代后：%d %f %f %f %f\n", (int)a, psid * 24, r2d(fmod(la, 2 * pi)), r2d(asin(sin(be))), chi2);
+					printf("%d\n\n", in);
 					if (Temp > temp)
 					{
 						Temp = temp;
@@ -949,7 +952,7 @@ int main()
 				}
 			}
 		}
-		if ((int)A == -1)
+		if (Y[0]>Tsyn)
 		{
 			Y[1] += 3 * pi;
 			Y[2] = -Y[2];
