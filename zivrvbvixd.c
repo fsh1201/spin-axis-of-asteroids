@@ -5,8 +5,8 @@
 #include "dcf.h"
 #include "lagrange.h"
 
-#define tmin 0.699	//周期起始值
-#define tmax 0.701	//周期结束值
+#define tmin 0.349	//周期起始值
+#define tmax 0.351	//周期结束值
 #define tstep 0.000001	//周期步长
 #define dp 1e-5
 #define dlp 1e-3
@@ -20,10 +20,13 @@
 //#define eq_out	//输出方程
 //#define print_EQ	//打印方程
 #define dcf_test	//输出相关的曲线
-#define Newton_iter	//牛顿法迭代求解
+
+//#define Newton_iter	//牛顿法迭代求解
 //#define Tra	//遍历求解
-//#define Tra_int	//师兄方法遍历
-#define T_asteroid 1826	//小行星公转周期
+//#define Tra_int	//取整方法遍历
+#define siga	//求恒星周期方差法
+
+#define T_asteroid 1825	//小行星公转周期
 //#define Fi	//先遍历i
 #define Fj	//先遍历曲线，判断i
 //#define T_test	//周期判定
@@ -32,7 +35,7 @@
 //#define lcf_out	//光变曲线输出
 //#define lcf_out_jur_dcf	//光变曲线输出
 #define spin_axis	//求自转轴
-#define MAX_T 720
+#define MAX_T 3600
 
 /*jurkevich方法寻找周期*/
 double jur(double** arr, int na)
@@ -266,7 +269,7 @@ double Jur_DCF(double*** lp, double*** lpc, int nlc, int** nlp)
 double dN(double ti, double tj, double tsyn)
 {
 	double a;
-	a = (double)((int)((ti - tj) / tsyn - 0.5));
+	a = (double)((int)((ti - tj) / tsyn-0.5));
 	return a;
 }
 
@@ -411,14 +414,17 @@ double dfdbp(double a, double* rs1, double* re1, double* rs2, double* re2, doubl
 
 int main()
 {
-	char* olcname;
+	/*char* olcname;
 	olcname = (char*)malloc(100 * sizeof(char));
 	if (olcname == NULL)
 		exit(20);
 	printf("输入光变曲线文件路径：");
 	(void)scanf("%s", olcname);
 	FILE* olc;
-	olc = fopen(olcname, "r");
+	olc = fopen(olcname, "r");*/
+
+	FILE* olc;
+	olc = fopen("D:\\wuli\\小行星反演\\version_0.2.1_副本\\monilc\\monilc.txt", "r");
 
 	int np = 0;
 	int nlc;	//光变曲线数量
@@ -497,6 +503,8 @@ int main()
 			}
 		}
 	}
+
+	fclose(olc);
 
 	int npc = 0;
 	double** lpc;
@@ -1034,6 +1042,83 @@ int main()
 	}
 	printf("%f %f %f\n", X[0], X[1], X[2]);
 #endif // Tra_int
+
+
+#ifdef siga
+	FILE* uix = fopen("E:\\uix.txt", "w");
+	double T = 0;
+	double temp = 1e26;
+	double lambda = 0, beta = 0;
+	for (double lambdap = 0; lambdap < 2*pi; lambdap = lambdap + 0.08)
+	{
+		for (double betap = -pi/2; betap <= pi/2; betap = betap + 0.08)
+		{
+			int n = 0;
+			double s = 0;
+			double* psid = (double*)malloc(nxy * sizeof(double));	//恒星周期
+			double*** Rc = (double***)malloc(nxy * sizeof(double));	//赤道坐标
+			double* mark = (double*)malloc(nxy * sizeof(double));	//去除标准差之外的恒星周期
+			for (int i = 0; i < nxy; i++)
+			{
+				Rc[i] = (double**)malloc(2 * sizeof(double));
+				Rc[i][0] = rc(re[i][0], rs[i][0], lambdap, betap);
+				Rc[i][1] = rc(re[i][1], rs[i][1], lambdap, betap);
+			}
+			for (int i = 0; i < nxy; i++)
+			{
+				double ll1 = LL(Rc[i][0]);
+				double ll2 = LL(Rc[i][1]);
+				double dl = ll1 - ll2;	//赤经变化量
+				if (ll1 - ll2 > pi)
+				{
+					dl = dl - 2 * pi;
+				}
+				if (ll1 - ll2 < -pi)
+				{
+					dl = dl + 2 * pi;
+				}
+				psid[i] = (tsyn[i][0] - tsyn[i][1]) / (dN(tsyn[i][0], tsyn[i][1], Tsyn) + (dl)/2/pi+(double)((int)((tsyn[i][0]-tsyn[i][1])/T_asteroid)));
+			}
+			double XXX = stdd(psid, nxy);	//标准差
+			double me = mean(psid, nxy);	//平均值
+			for (int i = 0; i < nxy; i++)
+			{
+				if (Abs(psid[i] - me) < XXX)	//标准差之内
+				{
+					mark[n] = psid[i];
+					n++;
+				}
+			}
+			XXX = stdd(mark, n);
+			if (temp > XXX)
+			{
+				temp = XXX;
+				T = mean(mark, n) * 24;
+				lambda = r2d(lambdap);
+				beta = r2d(betap);
+			}
+			fprintf(uix, "%f %f %f %.5e lp, bp, T, 方差\n", r2d(lambdap), r2d(betap), mean(mark, n), XXX*XXX);
+			for (int i = 0; i < n; i++)
+			{
+				fprintf(uix, "%f\n", mark[i]);
+			}
+			for (int i = 0; i < nxy; i++)
+			{
+				for (int j = 0; j < 2; j++)
+				{
+					free(Rc[i][j]);
+				}
+				free(Rc[i]);
+			}
+			free(psid);
+			free(Rc);
+			free(mark);
+		}
+	}
+	printf("%f %f %f\n", T, lambda, beta);
+	fprintf(uix, "%f %f %f\n", T, lambda, beta);
+	fclose(uix);
+#endif	//siga
 
 
 	for (int i = 0; i < nlc; i++)

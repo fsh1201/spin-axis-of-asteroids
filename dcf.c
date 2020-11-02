@@ -80,7 +80,7 @@ double timedelay_DCF(double** arr1, double** arr2, int n1, int n2, double tsyn)
 			T = t;
 		}
 	}
-	if (temp > 0.98 && (min(arr1[n1 - 1][0], arr2[n2 - 1][0] - T) - max(arr1[0][0], arr2[0][0] - T)) * 24 > 4)
+	if (temp > 0.98 && (min(arr1[n1 - 1][0], arr2[n2 - 1][0] - T) - max(arr1[0][0], arr2[0][0] - T)) * 24 > 2)
 	{
 		return T;
 	}
@@ -163,7 +163,7 @@ double timedelay_strf(double** arr1, double** arr2, int n1, int n2, double tsyn)
 			T = t;
 		}
 	}
-	if (temp < 0.01125 && (min(arr1[n1 - 1][0], arr2[n2 - 1][0] - T) - max(arr1[0][0], arr2[0][0] - T)) * 24 > 2 && DCF(arr1,arr2,n1,n2,T,0.01*tsyn)>0.98)
+	if (temp < 0.002 && (min(arr1[n1 - 1][0], arr2[n2 - 1][0] - T) - max(arr1[0][0], arr2[0][0] - T)) * 24 > 2 && DCF(arr1,arr2,n1,n2,T,0.01*tsyn)>0.98)
 	{
 		return T;
 	}
